@@ -1,2 +1,8 @@
-/star
-/venv
+/star/*
+/venv/*
+*.csv
+*.fits
+*.dat
+*.zip
+*.png
+*.pdf
