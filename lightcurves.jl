@@ -114,10 +114,10 @@ function getlc(star, fits; sector = 0)
 
     plot!(plt, aperture_rect_x, aperture_rect_y, lw = 2, label = "star", rightmargin = 20px)
 
-    savefig(plt, "$star/$sector-map.pdf")
+    savefig(plt, "$star_directory/$star/$sector-map.pdf")
     # savefig(plt, "maps/$star-$sector-map.pdf")
 
-    open("$star/$sector-rawlc.dat", "w") do io
+    open("$star_directory/$star/$sector-rawlc.dat", "w") do io
         println(io, "#jd flux raw_flux bkg_flux")
         for n = 1:N_cuts
             @printf(io, "%15.6f %12.3e %12.3e %12.3e\n", jd[n], flux[n], raw_flux[n], bkg_flux[n])
