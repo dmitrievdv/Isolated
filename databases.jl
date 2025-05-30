@@ -4,6 +4,20 @@ function get_star_coords(star_name)
     return df_simbad.ra[1], df_simbad.dec[1]
 end
 
+function get_star_coords_gaia(star_name; gaia = "dr3")
+    df_simbad = DataFrame(execute(TAPService(:simbad), "select top 5 oid, main_id, ids 
+    FROM ident 
+    JOIN basic ON ident.oidref = basic.oid
+    JOIN ids on ident.oidref = ids.oidref
+    where id = '$star_name'"))
+
+    gaia_regex = Regex("gaia $gaia (?<id>[0-9]+)", "i")
+    gaia_id = parse(Int, match(gaia_regex, df_simbad.ids[1])[:id])
+
+    df_gaia = DataFrame(execute(TAPService(:gaia), "select top 1 source_id, ra, dec from gaia$gaia.gaia_source where source_id = $gaia_id"))
+    return df_gaia.ra[1], df_gaia.dec[1]
+end
+
 function check_star_for_isolation(star_name, box_width, box_height, mag_threshold; kwargs...)
     df_simbad = DataFrame(execute(TAPService(:simbad), "select top 5 * FROM ident JOIN basic ON ident.oidref = basic.oid where id = '$star_name'"))
 

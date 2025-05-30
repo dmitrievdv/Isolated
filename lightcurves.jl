@@ -1,9 +1,9 @@
-using FITSIO
+# using FITSIO
 using Plots
 using Plots.PlotMeasures
 using Printf
 using DelimitedFiles
-using Dates
+
 
 function findbkg(cut, aperture_size)
     cut_width = size(cut)[1]
@@ -245,4 +245,44 @@ function mergelc(jd1, flux1, jd2, flux2)
         flux[N_2+2:N] = flux1[:]
     end
     return jd, flux
+end
+
+function get_lcs(star_name)
+    nospace_star_name = get_nospace_star_name(star_name)
+    archive = ZipReader(mmap(open("$star_directory/$nospace_star_name/$nospace_star_name.zip")))
+    entry_names = zip_names(archive)
+
+    jd_all = Float64[]
+    flux_all = Float64[]
+
+    for entry_name in entry_names
+        data = zip_readentry(archive, entry_name)
+        fits = FITS(data)
+        sector = parse(Int, entry_name[7:10])
+
+        jd, flux = getlc(nospace_star_name, fits, sector = sector)
+        jd, flux = uniformlc(jd, flux)
+
+        jd, flux = cleanlc(jd, flux)
+
+        mag = -2.5*log10.(flux) .+ 20.44
+
+        open("$star_directory/$nospace_star_name/$sector-lc.dat", "w") do io
+            println(io, "#jd flux")
+            for n = 1:length(jd)
+                @printf(io, "%15.6f %15.6e %15.6f\n", jd[n], flux[n], mag[n])
+            end
+        end
+        if length(jd) > 0
+            int_dates = collect(ceil(Int, jd[1]/5)*5:5:floor(Int, jd[end]/5)*5)
+            string_dates = Dates.format.(julian2datetime.(int_dates), "d u Y")
+            plt = plot(jd, tessmag.(flux), xticks = (int_dates, string_dates), label = false, rightmargin = 15px, yflip = true, ylabel = "TESS magnitude")
+            # savefig(plt, "plots/$star-$sector.pdf")
+            # savefig(plt, "plots/$star-$sector.png")
+            savefig(plt, "$star_directory/$nospace_star_name/$sector-lc.pdf")
+            savefig(plt, "$star_directory/$nospace_star_name/$sector-lc.png")
+            jd_all, flux_all = mergelc(jd_all, flux_all, jd, flux)
+        end
+    end
+    jd_all, flux_all
 end
