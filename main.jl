@@ -147,6 +147,14 @@ function get_tesscut_lc(fits)
     return fits
 end
 
+function calc_aperture_photometry(cut, star_px_x, star_px_y, aperture_radius)
+    px_width, px_height = size(cut)
+    n_px = px_width*px_height
+    bkg = get_n_min_median_background(cut, n_px ÷ 4)
+    ap = CircularAperture(star_px_x, star_px_y, aperture_radius)
+    return photometry(ap, cut .- bkg)[3]
+end
+
 function get_true_radec(α_0, δ_0, Δα, Δδ)
     α_0_rad = α_0/180*π
     δ_0_rad = δ_0/180*π
@@ -201,6 +209,10 @@ function get_distance(α_1, δ_1, α_2, δ_2)
     return acos(xyz_1 ⋅ xyz_2)/180*π
 end
 
+function calc_tess_magniude(flux)
+    return -2.5*log10(flux) + 20.44
+end
+
 # df_stars = get_simbad_young_stars(12, 8)
 # CSV.write("young_simbad.csv", df_stars)
 df_stars = CSV.read("isolated_224.csv", DataFrame)
@@ -209,7 +221,7 @@ df_stars = CSV.read("isolated_224.csv", DataFrame)
 
 
 begin 
-star_name = "VX Cas"
+star_name = "T Cha"
 
 gaia_data = get_star_gaia_data(star_name)
 ra, dec = gaia_data[[:ra, :dec]]
@@ -217,10 +229,16 @@ nospace_star_name = get_nospace_star_name(star_name)
 if !isfile("$star_directory/$nospace_star_name/$nospace_star_name.zip")
     get_tess_cutouts(ra, dec, 30, 30; star_name = star_name)
 end
+end 
+
+begin
 sectors = get_tess_sectors(star_name)
-fits = get_star_tesscut_fits(star_name, sectors[1])
+fits = get_star_tesscut_fits(star_name, sectors[4])
 flux_cuts = read(fits[2], "FLUX")
 n_px = size(flux_cuts)[1]*size(flux_cuts)[2]
+n_cuts= size(flux_cuts)[3]
+
+mjds = read(fits[2], "TIME")
 
 reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
 reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
@@ -250,13 +268,23 @@ for i_star = 1:n_stars
     stars_x[i_star], stars_y[i_star] = reference_px + conversion_matrix_radec_to_px * delta_radec
 end
 
+cuts = [flux_cuts[:,:,i_cut] for i_cut = 1:n_cuts]
+
+phot_flux = calc_aperture_photometry.(cuts, star_px..., 2.5)
+end
 
 begin
 fig = Figure()
 ax_cut = Axis(fig[1:2,1:2], title = star_name, aspect = DataAspect())
 ax_arrows = Axis(fig[2,0], aspect = DataAspect(), title = @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
+ax_light_curve = Axis(fig[3,0:3], yreversed = true, ylabel = "TESS magnitude", xlabel = "MJD")
 
+cut_slider = Slider(fig[4, 0:3], range = 1:n_cuts, startvalue = 500)
 
+next_button = Button(fig[6,0:1], label = "Next")
+prev_button = Button(fig[6,2:3], label = "Prev")
+
+max_flux_i_cut = findmax(phot_flux)[2]
 # xlabel!(ax_cut, @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
 
 Δδ = conversion_matrix_radec_to_px[:,2]/180
@@ -271,8 +299,6 @@ ylims!(ax_arrows, -1.2, 1.2)
 
 text!(ax_arrows, α_arrow_label..., text = "α", align = (:center, :center))
 text!(ax_arrows, δ_arrow_label..., text = "δ", align = (:center, :center))
-
-
 
 arrows!(ax_arrows, [0, 0], [0, 0], [Δα[1], Δδ[1]], [Δα[2], Δδ[2]])
 hidedecorations!(ax_arrows)
@@ -290,10 +316,38 @@ sizes_groups_stars_x = [stars_x[stars_int_mag .== int_mag] for int_mag = max_int
 sizes_groups_stars_y = [stars_y[stars_int_mag .== int_mag] for int_mag = max_int_mag:-1:min_int_mag]
 sizes = (maximum(stars_mag) .- stars_mag)
 
-bkg = get_n_min_mean_background(flux_cuts[:,:,500], n_px ÷ 4)
+i_cut = Observable(500)
+
+on(next_button.clicks) do n
+    i_cut[] += 1
+    i_cut[] = (i_cut[] - 1) % n_cuts + 1
+end
+
+on(prev_button.clicks) do n
+    i_cut[] -= 1
+    i_cut[] = (i_cut[] - 1) % n_cuts + 1
+end
+
+on(cut_slider.value) do val
+    i_cut[] = val
+end
+
+cut_hm_data = lift(i_cut) do i_cut
+    bkg = get_n_min_mean_background(flux_cuts[:,:,i_cut], n_px ÷ 4)
+    log10.(abs.(flux_cuts[:,:,i_cut] .- bkg))
+end
+
+
+
+cut_slider_label = Label(fig[5, 0:3], text = @lift "MJD = "*string(mjds[$i_cut])*", i_cut = "*string($i_cut))
+
+# bkg = get_n_min_mean_background(flux_cuts[:,:,500], n_px ÷ 4)
 # bkg = 160
-hm = heatmap!(ax_cut, log10.(abs.(flux_cuts[:,:,500] .- bkg)), 
-colorrange = limits = (0,maximum(log10.(abs.(flux_cuts[:,:,500] .- bkg)))))
+max_flux_bkg = get_n_min_mean_background(flux_cuts[:,:,max_flux_i_cut], n_px ÷ 4)
+max_flux_hm_data = log10.(abs.(flux_cuts[:,:,max_flux_i_cut] .- max_flux_bkg))
+max_flux_hm_data_no_bkg = log10.(abs.(flux_cuts[:,:,max_flux_i_cut]))
+
+hm = heatmap!(ax_cut, cut_hm_data, colorrange = (0,maximum(max_flux_hm_data)))
 # sc = scatter!(ax_cut, stars_x, stars_y, markersize = 5*sizes, color = :lightgray)
 for i_size = 1:n_sizes
     scatter!(ax_cut, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
@@ -304,11 +358,22 @@ scatter!(ax_cut, star_px...; marker = :cross, color = :magenta, label = star_nam
 Colorbar(fig[1:2,3], hm, label = "lg TESS flux")
 Legend(fig[1,0], ax_cut, "GAIA R mag")
 
+lines!(ax_light_curve, mjds, calc_tess_magniude.(phot_flux))
+vlines!(ax_light_curve, @lift mjds[$i_cut])
+
 
 # Colorbar(fig[1,2], sc)
 fig
 end
+
+begin
+    fig3d = Figure()
+    ax = Axis3(fig3d[1,1], aspect = :equal)
+    surface!(ax, max_flux_hm_data)
+    # scale!(ax.scene, 1, 1, 5)
+    fig3d
 end
+
 # df_isolated = begin
 #     df_isolated = DataFrame()
 #     n_stars = nrow(df_stars)
