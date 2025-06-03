@@ -9,6 +9,7 @@ using CSV
 using Photometry
 using Makie
 using GLMakie
+using Printf
 using FITSIO
 using Dates
 using LinearAlgebra
@@ -28,8 +29,17 @@ end
 
 function Base.showerror(io :: IO, e :: ErrorNoTESScut)
     # println(io, e)
-    print(typeof(e), "\n\n")
+    print(io, typeof(e), "\n\n")
     println(io, e.msg)
+end
+
+struct ErrorTESSWrongSector <: Exception 
+    sector_int :: Int
+end
+
+function Base.showerror(io :: IO, e :: ErrorTESSWrongSector)
+    print(io, typeof(e), "\n\n")
+    println(io, "Wrong sector: ", e.sector_int)
 end
 
 function extract_tess_cutouts(star_name = "star")
@@ -118,6 +128,10 @@ function get_star_tesscut_fits(star_name, sector)
 
     i_sector = findfirst(s -> s == sector, sectors)
 
+    if isa(i_sector, Nothing)
+        throw(ErrorTESSWrongSector(sector))
+    end
+
     return FITS(zip_readentry(archive, i_sector))
 end
 
@@ -191,18 +205,22 @@ end
 # CSV.write("young_simbad.csv", df_stars)
 df_stars = CSV.read("isolated_224.csv", DataFrame)
 
+# function plot_cutout(star_name, i_sector, i_cut, )
+
 
 begin 
-star_name = "T Cha"
+star_name = "VX Cas"
 
-ra, dec = get_star_coords_gaia(star_name)
+gaia_data = get_star_gaia_data(star_name)
+ra, dec = gaia_data[[:ra, :dec]]
 nospace_star_name = get_nospace_star_name(star_name)
 if !isfile("$star_directory/$nospace_star_name/$nospace_star_name.zip")
     get_tess_cutouts(ra, dec, 30, 30; star_name = star_name)
 end
 sectors = get_tess_sectors(star_name)
-fits = get_star_tesscut_fits(star_name, sectors[2])
+fits = get_star_tesscut_fits(star_name, sectors[1])
 flux_cuts = read(fits[2], "FLUX")
+n_px = size(flux_cuts)[1]*size(flux_cuts)[2]
 
 reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
 reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
@@ -213,7 +231,9 @@ conversion_matrix_px_to_radec = [read_key(fits[2], "11PC4")[1] read_key(fits[2],
 conversion_matrix_radec_to_px = inv(conversion_matrix_px_to_radec)
 
 corners = get_tesscut_corners(fits)
-df_gaia_stars = get_gaia_stars_in_poly(corners, 18; gaia = "dr2")
+Δm_R = 5
+star_R = gaia_data.phot_rp_mean_mag
+df_gaia_stars = get_gaia_stars_in_poly(corners, star_R + Δm_R; gaia = "dr2")
 n_stars = nrow(df_gaia_stars)
 
 stars_x = zeros(n_stars)
@@ -234,15 +254,23 @@ end
 begin
 fig = Figure()
 ax_cut = Axis(fig[1:2,1:2], title = star_name, aspect = DataAspect())
-ax_arrows = Axis(fig[2,0], aspect = DataAspect())
+ax_arrows = Axis(fig[2,0], aspect = DataAspect(), title = @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
+
+
+# xlabel!(ax_cut, @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
+
+Δδ = conversion_matrix_radec_to_px[:,2]/180
+Δα = conversion_matrix_radec_to_px[:,1]/180
+
 xlims!(ax_arrows, -1.2, 1.2)
 ylims!(ax_arrows, -1.2, 1.2)
 
-Δδ = conversion_matrix_radec_to_px * [0, 1/180]
-Δα = conversion_matrix_radec_to_px * [1/180, 0]
-
 α_arrow_label = Δα + 0.3*Δδ
 δ_arrow_label = Δδ + 0.3*Δα
+
+
+text!(ax_arrows, α_arrow_label..., text = "α", align = (:center, :center))
+text!(ax_arrows, δ_arrow_label..., text = "δ", align = (:center, :center))
 
 
 
@@ -262,21 +290,21 @@ sizes_groups_stars_x = [stars_x[stars_int_mag .== int_mag] for int_mag = max_int
 sizes_groups_stars_y = [stars_y[stars_int_mag .== int_mag] for int_mag = max_int_mag:-1:min_int_mag]
 sizes = (maximum(stars_mag) .- stars_mag)
 
-bkg = get_n_min_median_background(flux_cuts[:,:,500], 100)
+bkg = get_n_min_mean_background(flux_cuts[:,:,500], n_px ÷ 4)
+# bkg = 160
 hm = heatmap!(ax_cut, log10.(abs.(flux_cuts[:,:,500] .- bkg)), 
 colorrange = limits = (0,maximum(log10.(abs.(flux_cuts[:,:,500] .- bkg)))))
 # sc = scatter!(ax_cut, stars_x, stars_y, markersize = 5*sizes, color = :lightgray)
 for i_size = 1:n_sizes
     scatter!(ax_cut, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
-                            markersize = 2*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
+                            markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
 end
 
 scatter!(ax_cut, star_px...; marker = :cross, color = :magenta, label = star_name)
 Colorbar(fig[1:2,3], hm, label = "lg TESS flux")
 Legend(fig[1,0], ax_cut, "GAIA R mag")
 
-text!(ax_arrows, α_arrow_label..., text = "α", align = (:center, :center))
-text!(ax_arrows, δ_arrow_label..., text = "δ", align = (:center, :center))
+
 # Colorbar(fig[1,2], sc)
 fig
 end
