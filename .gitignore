@@ -1,3 +1,5 @@
 /stars_julia/*
+/stars/*
 /venv/*
 *.csv
+*.fits

@@ -14,6 +14,7 @@ using FITSIO
 using Dates
 using LinearAlgebra
 using Statistics
+using LeastSquaresOptim
 
 star_directory = "stars_julia"
 
@@ -213,6 +214,41 @@ function calc_tess_magniude(flux)
     return -2.5*log10(flux) + 20.44
 end
 
+function gaussian_PSF(width, height, center_x, center_y, σ, max_int; super_samp = 10)
+    model = zeros(width, height)
+    d_ss = 1/super_samp
+    for x_px = 1:width, y_px = 1:height
+        corner_x = x_px - 0.5
+        corner_y = y_px - 0.5
+        for i_ss_x = 1:super_samp, i_ss_y = 1:super_samp
+            x_ss = corner_x + i_ss_x*d_ss - d_ss/2
+            y_ss = corner_y + i_ss_y*d_ss - d_ss/2
+            model[x_px, y_px] += max_int*exp(-((center_x - x_ss)^2 + (center_y - y_ss)^2)/σ^2)*d_ss^2
+        end
+    end
+    return model
+end
+
+function fit_stars_gauss(cut_no_bkg, stars_px_x, stars_px_y; super_samp = 10)
+    width, height = size(cut_no_bkg)
+    n_stars = length(stars_px_x)
+    function to_optimize(pars)
+        max_ints = pars[1:n_stars]
+        σ = pars[end]
+        model = deepcopy(cut_no_bkg)
+        for i_star in 1:n_stars
+            model = model .- gaussian_PSF(width, height, stars_px_x[i_star], stars_px_y[i_star], σ, abs(max_ints[i_star]); super_samp = super_samp)
+        end
+        return vec(model)
+    end
+
+    start_pars = fill(100.0, n_stars+1)
+    start_pars[end] = 3
+
+    optimize(to_optimize, start_pars, LevenbergMarquardt())
+end
+
+
 # df_stars = get_simbad_young_stars(12, 8)
 # CSV.write("young_simbad.csv", df_stars)
 df_stars = CSV.read("isolated_224.csv", DataFrame)
@@ -221,19 +257,19 @@ df_stars = CSV.read("isolated_224.csv", DataFrame)
 
 
 begin 
-star_name = "T Cha"
+star_name = "RY Lup"
 
 gaia_data = get_star_gaia_data(star_name)
 ra, dec = gaia_data[[:ra, :dec]]
 nospace_star_name = get_nospace_star_name(star_name)
 if !isfile("$star_directory/$nospace_star_name/$nospace_star_name.zip")
-    get_tess_cutouts(ra, dec, 30, 30; star_name = star_name)
+    get_tess_cutouts(ra, dec, 15, 15; star_name = star_name)
 end
 end 
 
 begin
 sectors = get_tess_sectors(star_name)
-fits = get_star_tesscut_fits(star_name, sectors[4])
+fits = get_star_tesscut_fits(star_name, sectors[1])
 flux_cuts = read(fits[2], "FLUX")
 n_px = size(flux_cuts)[1]*size(flux_cuts)[2]
 n_cuts= size(flux_cuts)[3]
@@ -273,7 +309,7 @@ cuts = [flux_cuts[:,:,i_cut] for i_cut = 1:n_cuts]
 phot_flux = calc_aperture_photometry.(cuts, star_px..., 2.5)
 end
 
-begin
+begin 
 fig = Figure()
 ax_cut = Axis(fig[1:2,1:2], title = star_name, aspect = DataAspect())
 ax_arrows = Axis(fig[2,0], aspect = DataAspect(), title = @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
@@ -344,10 +380,10 @@ cut_slider_label = Label(fig[5, 0:3], text = @lift "MJD = "*string(mjds[$i_cut])
 # bkg = get_n_min_mean_background(flux_cuts[:,:,500], n_px ÷ 4)
 # bkg = 160
 max_flux_bkg = get_n_min_mean_background(flux_cuts[:,:,max_flux_i_cut], n_px ÷ 4)
-max_flux_hm_data = log10.(abs.(flux_cuts[:,:,max_flux_i_cut] .- max_flux_bkg))
-max_flux_hm_data_no_bkg = log10.(abs.(flux_cuts[:,:,max_flux_i_cut]))
+max_flux_hm_data = flux_cuts[:,:,max_flux_i_cut] .- max_flux_bkg
+max_flux_hm_data_no_bkg = flux_cuts[:,:,max_flux_i_cut]
 
-hm = heatmap!(ax_cut, cut_hm_data, colorrange = (0,maximum(max_flux_hm_data)))
+hm = heatmap!(ax_cut, cut_hm_data, colorrange = (0,max(minimum(max_flux_hm_data), log10(1.5e5))))
 # sc = scatter!(ax_cut, stars_x, stars_y, markersize = 5*sizes, color = :lightgray)
 for i_size = 1:n_sizes
     scatter!(ax_cut, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
@@ -358,8 +394,12 @@ scatter!(ax_cut, star_px...; marker = :cross, color = :magenta, label = star_nam
 Colorbar(fig[1:2,3], hm, label = "lg TESS flux")
 Legend(fig[1,0], ax_cut, "GAIA R mag")
 
+slider_time = @lift mjds[$i_cut]
+slider_flux = @lift phot_flux[$i_cut]
+
 lines!(ax_light_curve, mjds, calc_tess_magniude.(phot_flux))
-vlines!(ax_light_curve, @lift mjds[$i_cut])
+vlines!(ax_light_curve, slider_time; color = :red)
+scatter!(ax_light_curve, @lift Point2f(mjds[$i_cut], calc_tess_magniude(phot_flux[$i_cut])); color = :red)
 
 
 # Colorbar(fig[1,2], sc)
@@ -369,7 +409,7 @@ end
 begin
     fig3d = Figure()
     ax = Axis3(fig3d[1,1], aspect = :equal)
-    surface!(ax, max_flux_hm_data)
+    surface!(ax, max_flux_hm_data_no_bkg)
     # scale!(ax.scene, 1, 1, 5)
     fig3d
 end
