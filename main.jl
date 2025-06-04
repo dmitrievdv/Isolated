@@ -214,6 +214,36 @@ function calc_tess_magniude(flux)
     return -2.5*log10(flux) + 20.44
 end
 
+function elliptic_powexp_PSF(width, height, center_x, center_y, x_σ, y_σ, power, max_int; super_samp = 10)
+    model = zeros(width, height)
+    d_ss = 1/super_samp
+    for x_px = 1:width, y_px = 1:height
+        corner_x = x_px - 0.5
+        corner_y = y_px - 0.5
+        for i_ss_x = 1:super_samp, i_ss_y = 1:super_samp
+            x_ss = corner_x + i_ss_x*d_ss - d_ss/2
+            y_ss = corner_y + i_ss_y*d_ss - d_ss/2
+            model[x_px, y_px] += max_int*exp(-(abs((center_x - x_ss)/x_σ)^(power) + abs((center_y - y_ss)/y_σ)^power))*d_ss^2
+        end
+    end
+    return model
+end
+
+function elliptic_gaussian_PSF(width, height, center_x, center_y, x_σ, y_σ, max_int; super_samp = 10)
+    model = zeros(width, height)
+    d_ss = 1/super_samp
+    for x_px = 1:width, y_px = 1:height
+        corner_x = x_px - 0.5
+        corner_y = y_px - 0.5
+        for i_ss_x = 1:super_samp, i_ss_y = 1:super_samp
+            x_ss = corner_x + i_ss_x*d_ss - d_ss/2
+            y_ss = corner_y + i_ss_y*d_ss - d_ss/2
+            model[x_px, y_px] += max_int*exp(-(((center_x - x_ss)/x_σ)^2 + ((center_y - y_ss)/y_σ)^2))*d_ss^2
+        end
+    end
+    return model
+end
+
 function gaussian_PSF(width, height, center_x, center_y, σ, max_int; super_samp = 10)
     model = zeros(width, height)
     d_ss = 1/super_samp
@@ -234,16 +264,19 @@ function fit_stars_gauss(cut_no_bkg, stars_px_x, stars_px_y; super_samp = 10)
     n_stars = length(stars_px_x)
     function to_optimize(pars)
         max_ints = pars[1:n_stars]
-        σ = pars[end]
+        y_σ = pars[end]
+        x_σ = pars[end-1]
+        power = pars[end-2]
         model = deepcopy(cut_no_bkg)
         for i_star in 1:n_stars
-            model = model .- gaussian_PSF(width, height, stars_px_x[i_star], stars_px_y[i_star], σ, abs(max_ints[i_star]); super_samp = super_samp)
+            model = model .- elliptic_powexp_PSF(width, height, stars_px_x[i_star], stars_px_y[i_star], x_σ, y_σ, power, abs(max_ints[i_star]); super_samp = super_samp)
         end
         return vec(model)
     end
 
-    start_pars = fill(100.0, n_stars+1)
-    start_pars[end] = 3
+    start_pars = fill(100.0, n_stars+3)
+    start_pars[end-1:end] .= 1
+    start_pars[end-2] = 2
 
     optimize(to_optimize, start_pars, LevenbergMarquardt())
 end
@@ -257,7 +290,7 @@ df_stars = CSV.read("isolated_224.csv", DataFrame)
 
 
 begin 
-star_name = "RY Lup"
+star_name = "T Cha"
 
 gaia_data = get_star_gaia_data(star_name)
 ra, dec = gaia_data[[:ra, :dec]]
@@ -269,7 +302,7 @@ end
 
 begin
 sectors = get_tess_sectors(star_name)
-fits = get_star_tesscut_fits(star_name, sectors[1])
+fits = get_star_tesscut_fits(star_name, sectors[2])
 flux_cuts = read(fits[2], "FLUX")
 n_px = size(flux_cuts)[1]*size(flux_cuts)[2]
 n_cuts= size(flux_cuts)[3]
