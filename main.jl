@@ -86,12 +86,17 @@ function get_tess_sectors(star_name; query = false)
     end
 end
 
+get_px_to_radec_matrix(fits) = [read_key(fits[2], "11PC4")[1] read_key(fits[2], "12PC4")[1]
+                                read_key(fits[2], "21PC4")[1] read_key(fits[2], "22PC4")[1]]
+
+get_reference_radec(fits) = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
+
+get_reference_px(fits) = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
+
 function get_tesscut_corners(fits)
-    reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
-    reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
-    cos_dec = cos(reference_radec[2]/180*π)
-    conversion_matrix_px_to_radec = [read_key(fits[2], "11PC4")[1] read_key(fits[2], "12PC4")[1]
-                                     read_key(fits[2], "21PC4")[1] read_key(fits[2], "22PC4")[1]]
+    reference_px = get_reference_px(fits)
+    reference_radec = get_reference_radec(fits)
+    conversion_matrix_px_to_radec = get_px_to_radec_matrix(fits)
 
     width, height = size(read(fits[2], "FLUX"))[1:2]
     # width = 1.5*width; height = 1.5*height
@@ -281,6 +286,124 @@ function fit_stars_gauss(cut_no_bkg, stars_px_x, stars_px_y; super_samp = 10)
     optimize(to_optimize, start_pars, LevenbergMarquardt())
 end
 
+function get_tesscut_ffi_coordinates(cut_fits)
+    α_cut, δ_cut = get_reference_radec(cut_fits)
+
+    sector = read_key(fits[1], "SECTOR")[1]
+
+    ptr = @ccall "./tess_point_c/libtess_stars2px.so.1.0.1".tess_stars2px_sector(α_cut::Float64, δ_cut::Float64, sector :: Int)::Ptr{Cdouble}
+    coords = unsafe_wrap(Vector{Float64}, ptr, 2)
+    return round.(Int, coords)
+end
+
+function get_tesscut_prf(cut_fits)
+    α_cut, δ_cut = get_reference_radec(cut_fits)
+    ccd_x, ccd_y = get_tesscut_ffi_coordinates(cut_fits)
+
+    sector = read_key(fits[1], "SECTOR")[1] 
+    cam = read_key(fits[1], "CAMERA")[1]
+    ccd = read_key(fits[1], "CCD")[1]
+
+    prf_url_dir = "https://archive.stsci.edu/missions/tess/models/prf_fitsfiles"
+
+    prf_sector_str = if sector < 4
+        if (cam > 2) | (cam == 2 & ccd == 4)
+            "start_s0001/cam$(cam)_ccd$(ccd)/tess2018243163601-prf-"
+        else
+            "start_s0001/cam$(cam)_ccd$(ccd)/tess2018243163600-prf-"
+        end
+    else
+        if (cam > 3) | (cam == 3 & ccd ≥ 2)
+            "start_s0004/cam$(cam)_ccd$(ccd)/tess2019107181902-prf-"
+        elseif (cam == 1) & (ccd == 1)
+            "start_s0004/cam$(cam)_ccd$(ccd)/tess2019107181900-prf-"
+        else
+            "start_s0004/cam$(cam)_ccd$(ccd)/tess2019107181901-prf-"
+        end
+    end
+
+    B_prf_row = ((ccd_y - 1) ÷ 512)*512 + 1
+    L_prf_col = ((ccd_x - 45) ÷ 512)*512 + 45
+    T_prf_row = ((ccd_y - 1) ÷ 512 + 1)*512 + 1
+    R_prf_col = ((ccd_x - 45) ÷ 512 + 1)*512 + 45
+
+    B_prf_row -= (B_prf_row > 1500)
+    L_prf_col -= (L_prf_col > 1500)
+    T_prf_row -= (T_prf_row > 1500)
+    R_prf_col -= (R_prf_col > 1500)
+
+    B_prf_row_str = @sprintf "%04i"  B_prf_row
+    T_prf_row_str = @sprintf "%04i"  T_prf_row
+    L_prf_col_str = @sprintf "%04i"  L_prf_col
+    R_prf_col_str = @sprintf "%04i"  R_prf_col
+
+    BL_prf_file_name = "$cam-$ccd-row$B_prf_row_str-col$L_prf_col_str.fits"
+    BR_prf_file_name = "$cam-$ccd-row$B_prf_row_str-col$R_prf_col_str.fits"
+    TL_prf_file_name = "$cam-$ccd-row$T_prf_row_str-col$L_prf_col_str.fits"
+    TR_prf_file_name = "$cam-$ccd-row$T_prf_row_str-col$R_prf_col_str.fits"
+
+    mkpath("prf/$prf_sector_str$BL_prf_file_name")
+
+    HTTP.download("$prf_url_dir/$prf_sector_str$BL_prf_file_name", "prf/$prf_sector_str$BL_prf_file_name")
+    HTTP.download("$prf_url_dir/$prf_sector_str$BR_prf_file_name", "prf/$prf_sector_str$BR_prf_file_name")
+    HTTP.download("$prf_url_dir/$prf_sector_str$TL_prf_file_name", "prf/$prf_sector_str$TL_prf_file_name")
+    HTTP.download("$prf_url_dir/$prf_sector_str$TR_prf_file_name", "prf/$prf_sector_str$TR_prf_file_name")
+end
+
+function estimate_tess_ffi_coordinates(cut_fits)
+    α_cut, δ_cut = get_reference_radec(cut_fits)
+    conversion_matrix_px_to_radec = get_px_to_radec_matrix(cut_fits)
+    conversion_matrix_radec_to_px = inv(conversion_matrix_px_to_radec)
+    sectors_df = CSV.read("sectors.csv", DataFrame)
+
+    cam = read_key(fits[1], "CAMERA")[1]
+    cam_ra_name = "cam$cam"*"_ra"
+    cam_dec_name = "cam$cam"*"_dec"
+
+    sector = read_key(fits[1], "SECTOR")[1] 
+
+    prf_url_dir = if sector < 4
+        "https://archive.stsci.edu/missions/tess/models/prf_fitsfiles/start_s0001/"
+    else
+        "https://archive.stsci.edu/missions/tess/models/prf_fitsfiles/start_s0004/"
+    end
+
+    sector_df_i = findfirst(s -> s == sector, sectors_df.sector[:])
+    α_cam = sectors_df[sector_df_i, cam_ra_name]
+    δ_cam = sectors_df[sector_df_i, cam_dec_name]
+
+    println("$α_cut $δ_cut, $α_cam $δ_cam")
+    println(get_rel_radec(α_cut, δ_cut, α_cam, δ_cam))
+
+    Δx, Δy = conversion_matrix_radec_to_px * get_rel_radec(α_cut, δ_cut, α_cam, δ_cam)
+    x = if Δx < 0 
+        1 - Δx
+    else 
+        2048 - Δx
+    end
+
+    y = if Δy < 0
+        1 - Δy
+    else
+        2048 - Δy
+    end
+
+    prf_row = ((y - 1) ÷ 512)*512 + 1
+    prf_col = ((x - 45) ÷ 512)*512 + 45
+
+    prf_row -= (prf_row > 1500)
+    prf_col -= (prf_col > 1500)
+
+    prf_row_str = @sprintf "%04i"  prf_row
+    prf_col_str = @sprintf "%04i"  prf_col
+
+    ccd = read_key(fits[1], "CCD")[1]
+
+    prf_file_name = "tess2019107181901-prf-$cam-$ccd-row$prf_row_str-col$prf_col_str.fits"
+
+    return prf_file_name
+end
+
 
 # df_stars = get_simbad_young_stars(12, 8)
 # CSV.write("young_simbad.csv", df_stars)
@@ -290,9 +413,15 @@ df_stars = CSV.read("isolated_224.csv", DataFrame)
 
 
 begin 
-star_name = "T Cha"
-
-gaia_data = get_star_gaia_data(star_name)
+star_name = "RY Lup"
+gaia_data_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_target.csv"
+gaia_data = if !isfile(gaia_data_file) 
+    data = get_star_gaia_data(star_name)
+    CSV.write(gaia_data_file, DataFrame(data))
+    data
+else
+    CSV.read(gaia_data_file, DataFrame)[1, :]
+end
 ra, dec = gaia_data[[:ra, :dec]]
 nospace_star_name = get_nospace_star_name(star_name)
 if !isfile("$star_directory/$nospace_star_name/$nospace_star_name.zip")
@@ -302,7 +431,7 @@ end
 
 begin
 sectors = get_tess_sectors(star_name)
-fits = get_star_tesscut_fits(star_name, sectors[2])
+fits = get_star_tesscut_fits(star_name, sectors[1])
 flux_cuts = read(fits[2], "FLUX")
 n_px = size(flux_cuts)[1]*size(flux_cuts)[2]
 n_cuts= size(flux_cuts)[3]
@@ -320,7 +449,14 @@ conversion_matrix_radec_to_px = inv(conversion_matrix_px_to_radec)
 corners = get_tesscut_corners(fits)
 Δm_R = 5
 star_R = gaia_data.phot_rp_mean_mag
-df_gaia_stars = get_gaia_stars_in_poly(corners, star_R + Δm_R; gaia = "dr2")
+gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_stars_in_view.csv"
+df_gaia_stars = if !isfile(gaia_stars_file) 
+    data = get_gaia_stars_in_poly(corners, star_R + Δm_R; gaia = "dr2")
+    CSV.write(gaia_stars_file, data)
+    data
+else
+    CSV.read(gaia_stars_file, DataFrame)
+end
 n_stars = nrow(df_gaia_stars)
 
 stars_x = zeros(n_stars)

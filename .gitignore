@@ -3,3 +3,6 @@
 /venv/*
 *.csv
 *.fits
+*.o
+/tess_point_c/test
+*.so*
