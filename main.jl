@@ -15,6 +15,7 @@ using Dates
 using LinearAlgebra
 using Statistics
 using LeastSquaresOptim
+using ProgressBars
 
 star_directory = "stars_julia"
 
@@ -286,35 +287,96 @@ function fit_stars_gauss(cut_no_bkg, stars_px_x, stars_px_y; super_samp = 10)
     optimize(to_optimize, start_pars, LevenbergMarquardt())
 end
 
-function get_tesscut_ffi_coordinates(cut_fits)
-    α_cut, δ_cut = get_reference_radec(cut_fits)
+function fit_stars_prf(supersampled_prf, cut_no_bkg, stars_px_x, stars_px_y)
+    width, height = size(cut_no_bkg)
+    n_stars = length(stars_px_x)
+    prf_cuts = get_prf_cut.(Ref(supersampled_prf), width, height, stars_px_x, stars_px_y)
+    function to_optimize(pars)
+        model = deepcopy(cut_no_bkg)
+        for i_star = 1:n_stars
+            model = model .- prf_cuts[i_star] * abs(pars[i_star])
+        end
 
-    sector = read_key(fits[1], "SECTOR")[1]
+        return vec(model)
+    end
 
-    ptr = @ccall "./tess_point_c/libtess_stars2px.so.1.0.1".tess_stars2px_sector(α_cut::Float64, δ_cut::Float64, sector :: Int)::Ptr{Cdouble}
-    coords = unsafe_wrap(Vector{Float64}, ptr, 2)
-    return round.(Int, coords)
+    start_pars = fill(100.0, n_stars)
+
+    optimize(to_optimize, start_pars, LevenbergMarquardt())
 end
 
-function get_tesscut_prf(cut_fits)
-    α_cut, δ_cut = get_reference_radec(cut_fits)
-    ccd_x, ccd_y = get_tesscut_ffi_coordinates(cut_fits)
+function fit_stars_prf_bkg(supersampled_prf, cut, stars_px_x, stars_px_y)
+    width, height = size(cut)
+    n_stars = length(stars_px_x)
+    prf_cuts = get_prf_cut.(Ref(supersampled_prf), width, height, stars_px_x, stars_px_y)
+    function to_optimize(pars)
+        model = deepcopy(cut)
+        for i_star = 1:n_stars
+            model = model .- prf_cuts[i_star] * abs(pars[i_star])
+        end
 
+        return vec(model .- pars[end])
+    end
+
+    start_pars = fill(100.0, n_stars + 1)
+
+    optimize(to_optimize, start_pars, LevenbergMarquardt())
+end
+
+function fit_stars_prf_flat_bkg(supersampled_prf, cut, stars_px_x, stars_px_y, start_pars)
+    width, height = size(cut)
+    n_stars = length(stars_px_x)
+    prf_cuts = vec.(get_prf_cut.(Ref(supersampled_prf), width, height, stars_px_x, stars_px_y))
+    model_start = vec(deepcopy(cut))
+    
+    function to_optimize!(model, pars)
+        model .= model_start
+        for i_star = 1:n_stars
+            model .= model - prf_cuts[i_star] * abs(pars[i_star])
+        end
+
+        bkg_plane_normal_length = √(pars[end-3]^2 + pars[end-2]^2 + pars[end-1]^2)
+
+        for x = 1:width, y = 1:height
+            model[(x-1)*width + y] = model[(x-1)*width + y] - (pars[end]*bkg_plane_normal_length - pars[end-3]*x - pars[end-2]*y)/pars[end-1]
+        end
+    end
+
+    optimize!(LeastSquaresProblem(x = start_pars, f! = to_optimize!, output_length = width*height), LevenbergMarquardt())
+end
+
+function get_tess_ffi_coordinates(α, δ, sector)
+    ptr = @ccall "./tess_point_c/libtess_stars2px.so.1.0.1".tess_stars2px_sector(α::Float64, δ::Float64, sector :: Int)::Ptr{Cdouble}
+    coords = unsafe_wrap(Vector{Float64}, ptr, 2)
+    return coords
+end
+
+function get_tesscut_ffi_coordinates(cut_fits)
+    α_cut, δ_cut = get_reference_radec(cut_fits)
+    sector = read_key(cut_fits[1], "SECTOR")[1]
+
+    return get_tess_ffi_coordinates(α_cut, δ_cut, sector)
+end
+
+function get_tesscut_prf_supersampled(cut_fits)
+    α_cut, δ_cut = get_reference_radec(cut_fits)
     sector = read_key(fits[1], "SECTOR")[1] 
+    ccd_x, ccd_y = round.(Int, get_tess_ffi_coordinates(α_cut, δ_cut, sector))
+
     cam = read_key(fits[1], "CAMERA")[1]
     ccd = read_key(fits[1], "CCD")[1]
 
     prf_url = "https://archive.stsci.edu/missions/tess/models/prf_fitsfiles"
-    prf_dir = "start_s0001/cam$(cam)_ccd$(ccd)"
+    prf_dir = "start_s000$(sector > 3 ? 4 : 1)/cam$(cam)_ccd$(ccd)"
 
     prf_prefix = if sector < 4
-        if (cam > 2) | (cam == 2 & ccd == 4)
+        if (cam > 2) | ((cam == 2) & (ccd == 4))
             "tess2018243163601"
         else
             "tess2018243163600"
         end
     else
-        if (cam > 3) | (cam == 3 & ccd ≥ 2)
+        if (cam > 3) | ((cam == 3) & (ccd ≥ 2))
             "tess2019107181902"
         elseif (cam == 1) & (ccd == 1)
             "tess2019107181900"
@@ -360,7 +422,52 @@ function get_tesscut_prf(cut_fits)
         HTTP.download("$prf_url/$prf_dir/$TR_prf_file_name", "prf/$prf_dir/$TR_prf_file_name")
     end
     
+    BR_prf = read(FITS("prf/$prf_dir/$BR_prf_file_name")[1])
+    BL_prf = read(FITS("prf/$prf_dir/$BL_prf_file_name")[1])
+    TR_prf = read(FITS("prf/$prf_dir/$TR_prf_file_name")[1])
+    TL_prf = read(FITS("prf/$prf_dir/$TL_prf_file_name")[1])
 
+    # Linear Interpolation in a square
+    interpolated_prf = ((ccd_y - B_prf_row)*(ccd_x - L_prf_col)*TR_prf 
+           -(ccd_y - B_prf_row)*(ccd_x - R_prf_col)*TL_prf
+           -(ccd_y - T_prf_row)*(ccd_x - L_prf_col)*BR_prf 
+           +(ccd_y - T_prf_row)*(ccd_x - R_prf_col)*BL_prf)/(T_prf_row - B_prf_row)/(R_prf_col - L_prf_col)
+
+    rotated_prf = zeros(size(interpolated_prf))
+    prf_height, prf_width = size(interpolated_prf)
+
+    for x = 1:prf_width, y = 1:prf_height
+        rotated_prf[x, y] = interpolated_prf[prf_width - x + 1, prf_width - y + 1]
+    end
+    return rotated_prf
+end
+
+function get_prf_cut(prf_supersampled, cut_width, cut_height, x_source, y_source)
+    x_source_px = round(Int, x_source)
+    y_source_px = round(Int, y_source)
+
+    δx = round(Int, (x_source - x_source_px)*9)
+    δy = round(Int, (y_source - y_source_px)*9)
+
+    prf = zeros(cut_width, cut_height)
+
+    centered_supersampled_sum = [55,63]
+
+    correct_bound(i) = i ≥ 1 ? (i ≤ 117 ? i : 117) : 1
+
+    for x_px = 1:cut_width, y_px = 1:cut_height
+        Δx = round(Int, (x_source - x_px)*9)
+        Δy = round(Int, (y_source - y_px)*9)
+
+        prf_supersampled_sum_x = range.(correct_bound.(centered_supersampled_sum .+ Δx)...)
+        prf_supersampled_sum_y = range.(correct_bound.(centered_supersampled_sum .+ Δy)...)
+
+        prf[x_px, y_px] = sum(prf_supersampled[prf_supersampled_sum_x, prf_supersampled_sum_y])/81
+        if prf[x_px, y_px] < 2e-4
+            prf[x_px, y_px] = 0.0
+        end
+    end
+    return prf
 end
 
 function estimate_tess_ffi_coordinates(cut_fits)
@@ -451,7 +558,7 @@ df_stars = CSV.read("isolated_224.csv", DataFrame)
 
 
 begin 
-star_name = "RY Lup"
+star_name = "T Cha"
 gaia_data_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_target.csv"
 gaia_data = if !isfile(gaia_data_file) 
     data = get_star_gaia_data(star_name)
@@ -469,7 +576,8 @@ end
 
 begin
 sectors = get_tess_sectors(star_name)
-fits = get_star_tesscut_fits(star_name, sectors[1])
+sector = sectors[4]
+fits = get_star_tesscut_fits(star_name, sector)
 flux_cuts = read(fits[2], "FLUX")
 n_px = size(flux_cuts)[1]*size(flux_cuts)[2]
 n_cuts= size(flux_cuts)[3]
@@ -487,15 +595,17 @@ conversion_matrix_radec_to_px = inv(conversion_matrix_px_to_radec)
 corners = get_tesscut_corners(fits)
 Δm_R = 5
 star_R = gaia_data.phot_rp_mean_mag
-gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_stars_in_view.csv"
+gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_stars_in_view_sector_$sector.csv"
 df_gaia_stars = if !isfile(gaia_stars_file) 
-    data = get_gaia_stars_in_poly(corners, star_R + Δm_R; gaia = "dr2")
+    data = get_gaia_stars_in_poly(corners, star_R + Δm_R)
     CSV.write(gaia_stars_file, data)
     data
 else
     CSV.read(gaia_stars_file, DataFrame)
 end
 n_stars = nrow(df_gaia_stars)
+
+star_index = findfirst(x -> x == gaia_data.source_id, df_gaia_stars.source_id)
 
 stars_x = zeros(n_stars)
 stars_y = zeros(n_stars)
@@ -619,6 +729,85 @@ begin
     surface!(ax, max_flux_hm_data_no_bkg)
     # scale!(ax.scene, 1, 1, 5)
     fig3d
+end
+
+begin
+    cut = 1000
+    prf = get_tesscut_prf_supersampled(fits)
+    # bkg = get_n_min_median_background(flux_cuts[:,:,cut], size(flux_cuts)[1]*size(flux_cuts)[2] ÷ 4)
+    res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y)
+    star_flux = res.minimizer[star_index]
+    bkg_plane = res.minimizer[end-3:end]
+    bkg_plane[1:3] /= √(sum(bkg_plane[1:3] .^ 2))
+
+    cut_width, cut_height = size(flux_cuts)[1:2]
+
+    bkg_cut = zeros(cut_width, cut_height)
+    for x_px = 1:cut_width, y_px = 1:cut_height
+        bkg_cut[x_px, y_px] = (bkg_plane[end] - bkg_plane[1]*x_px - bkg_plane[2]*y_px)/bkg_plane[3]
+    end
+
+    PRFs = [get_prf_cut(prf, 15, 15, stars_x[i_star], stars_y[i_star])*abs(res.minimizer[i_star]) for i_star = 1:n_stars]
+    bkg = res.minimizer[end]
+    PRF_cut = sum(PRFs) .+ bkg_cut
+
+    fig_prf = Figure()
+    ax_prf = Axis(fig_prf[1,1], aspect = DataAspect(), title = "PRF Model, no bkg")
+    hm_prf = heatmap!(ax_prf, log10.(abs.(PRF_cut .- bkg_cut)), colorrange = (0, 4.5))    
+    Colorbar(fig_prf[1,2], hm_prf, label = "lg TESS Flux")
+
+    ax_flux = Axis(fig_prf[2,1], aspect = DataAspect(), title = "Observed, no bkg")
+    hm_flux = heatmap!(ax_flux, log10.(abs.(flux_cuts[:,:,cut] .- bkg_cut)), colorrange = (0, 4.5)) 
+    Colorbar(fig_prf[2,2], hm_flux, label = "lg TESS Flux")
+   
+
+    ax_diff = Axis(fig_prf[1,3], aspect = DataAspect(), title = "(Observed - Model) / star_flux")
+    hm_diff = heatmap!(ax_diff, (flux_cuts[:,:,cut].- PRF_cut) ./ star_flux)
+    Colorbar(fig_prf[1,4], hm_diff)
+
+    ax_1prf = Axis(fig_prf[2,3], aspect = DataAspect(), title = "PRF")
+    hm_1prf = heatmap!(ax_1prf, log10.(get_prf_cut(prf, cut_width, cut_height, star_px...)))
+    Colorbar(fig_prf[2,4], hm_1prf)
+
+    for i_size = 1:n_sizes
+        scatter!(ax_flux, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
+                                markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
+    end
+    
+    scatter!(ax_flux, star_px...; marker = :cross, color = :magenta, label = star_name)
+
+    for i_size = 1:n_sizes
+        scatter!(ax_prf, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
+                                markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
+    end
+    
+    scatter!(ax_prf, star_px...; marker = :cross, color = :magenta, label = star_name)
+
+    Legend(fig_prf[1,0], ax_flux, "GAIA R mag", tellwidth = false)
+
+    fig_prf
+end
+
+begin
+    prf = get_tesscut_prf_supersampled(fits)
+    prf_lc = zeros(n_cuts)
+    start_pars = fill(100.0, n_stars + 4)
+    iter = ProgressBar(1:n_cuts)
+    for cut = iter
+        res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y, start_pars)
+        # start_pars .= res.minimizer
+        prf_lc[cut] = res.minimizer[star_index]
+        set_postfix(iter, Flux=@sprintf("%.2f", prf_lc[cut]))
+    end
+end
+
+begin 
+    fig_prflc = Figure()
+    ax_prflc = Axis(fig_prflc[1,1], yreversed = true)
+    lines!(ax_prflc, mjds, calc_tess_magniude.(phot_flux), label = "Aperture")
+    lines!(ax_prflc, mjds, calc_tess_magniude.(abs.(prf_lc)), label = "TESS PRF")
+    Legend(fig_prflc[1,1], ax_prflc, tellwidth = false, valign = :top, halign = :right)
+    fig_prflc
 end
 
 # df_isolated = begin
