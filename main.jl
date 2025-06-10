@@ -304,21 +304,22 @@ function get_tesscut_prf(cut_fits)
     cam = read_key(fits[1], "CAMERA")[1]
     ccd = read_key(fits[1], "CCD")[1]
 
-    prf_url_dir = "https://archive.stsci.edu/missions/tess/models/prf_fitsfiles"
+    prf_url = "https://archive.stsci.edu/missions/tess/models/prf_fitsfiles"
+    prf_dir = "start_s0001/cam$(cam)_ccd$(ccd)"
 
-    prf_sector_str = if sector < 4
+    prf_prefix = if sector < 4
         if (cam > 2) | (cam == 2 & ccd == 4)
-            "start_s0001/cam$(cam)_ccd$(ccd)/tess2018243163601-prf-"
+            "tess2018243163601"
         else
-            "start_s0001/cam$(cam)_ccd$(ccd)/tess2018243163600-prf-"
+            "tess2018243163600"
         end
     else
         if (cam > 3) | (cam == 3 & ccd ≥ 2)
-            "start_s0004/cam$(cam)_ccd$(ccd)/tess2019107181902-prf-"
+            "tess2019107181902"
         elseif (cam == 1) & (ccd == 1)
-            "start_s0004/cam$(cam)_ccd$(ccd)/tess2019107181900-prf-"
+            "tess2019107181900"
         else
-            "start_s0004/cam$(cam)_ccd$(ccd)/tess2019107181901-prf-"
+            "tess2019107181901"
         end
     end
 
@@ -337,17 +338,29 @@ function get_tesscut_prf(cut_fits)
     L_prf_col_str = @sprintf "%04i"  L_prf_col
     R_prf_col_str = @sprintf "%04i"  R_prf_col
 
-    BL_prf_file_name = "$cam-$ccd-row$B_prf_row_str-col$L_prf_col_str.fits"
-    BR_prf_file_name = "$cam-$ccd-row$B_prf_row_str-col$R_prf_col_str.fits"
-    TL_prf_file_name = "$cam-$ccd-row$T_prf_row_str-col$L_prf_col_str.fits"
-    TR_prf_file_name = "$cam-$ccd-row$T_prf_row_str-col$R_prf_col_str.fits"
+    BL_prf_file_name = "$prf_prefix-prf-$cam-$ccd-row$B_prf_row_str-col$L_prf_col_str.fits"
+    BR_prf_file_name = "$prf_prefix-prf-$cam-$ccd-row$B_prf_row_str-col$R_prf_col_str.fits"
+    TL_prf_file_name = "$prf_prefix-prf-$cam-$ccd-row$T_prf_row_str-col$L_prf_col_str.fits"
+    TR_prf_file_name = "$prf_prefix-prf-$cam-$ccd-row$T_prf_row_str-col$R_prf_col_str.fits"
 
-    mkpath("prf/$prf_sector_str$BL_prf_file_name")
+    mkpath("prf/$prf_dir")
 
-    HTTP.download("$prf_url_dir/$prf_sector_str$BL_prf_file_name", "prf/$prf_sector_str$BL_prf_file_name")
-    HTTP.download("$prf_url_dir/$prf_sector_str$BR_prf_file_name", "prf/$prf_sector_str$BR_prf_file_name")
-    HTTP.download("$prf_url_dir/$prf_sector_str$TL_prf_file_name", "prf/$prf_sector_str$TL_prf_file_name")
-    HTTP.download("$prf_url_dir/$prf_sector_str$TR_prf_file_name", "prf/$prf_sector_str$TR_prf_file_name")
+    println("$prf_url/$prf_dir/$BL_prf_file_name")
+
+    if !isfile("prf/$prf_dir/$BL_prf_file_name")
+        HTTP.download("$prf_url/$prf_dir/$BL_prf_file_name", "prf/$prf_dir/$BL_prf_file_name")
+    end
+    if !isfile("prf/$prf_dir/$BR_prf_file_name")
+        HTTP.download("$prf_url/$prf_dir/$BR_prf_file_name", "prf/$prf_dir/$BR_prf_file_name")
+    end
+    if !isfile("prf/$prf_dir/$TL_prf_file_name")
+        HTTP.download("$prf_url/$prf_dir/$TL_prf_file_name", "prf/$prf_dir/$TL_prf_file_name")
+    end
+    if !isfile("prf/$prf_dir/$TR_prf_file_name")
+        HTTP.download("$prf_url/$prf_dir/$TR_prf_file_name", "prf/$prf_dir/$TR_prf_file_name")
+    end
+    
+
 end
 
 function estimate_tess_ffi_coordinates(cut_fits)
@@ -404,6 +417,31 @@ function estimate_tess_ffi_coordinates(cut_fits)
     return prf_file_name
 end
 
+function create_gaia_datafiles(star_name; rewrite = false)
+    gaia_data_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_target.csv"
+    gaia_data = if !isfile(gaia_data_file) | rewrite
+        data = get_star_gaia_data(star_name)
+        CSV.write(gaia_data_file, DataFrame(data))
+        data
+    else
+        CSV.read(gaia_data_file, DataFrame)[1, :]
+    end
+
+
+    if isfile("$star_directory/$nospace_star_name/$nospace_star_name.zip")
+        sectors = get_tess_sectors(star_name)
+        fits = get_star_tesscut_fits(star_name, sectors[1])
+        corners = get_tesscut_corners(fits)
+        Δm_R = 5
+        star_R = gaia_data.phot_rp_mean_mag
+        gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_stars_in_view.csv"
+
+        if !isfile(gaia_stars_file) | rewrite
+            data = get_gaia_stars_in_poly(corners, star_R + Δm_R; gaia = "dr2")
+            CSV.write(gaia_stars_file, data)
+        end
+    end
+end
 
 # df_stars = get_simbad_young_stars(12, 8)
 # CSV.write("young_simbad.csv", df_stars)
