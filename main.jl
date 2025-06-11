@@ -287,22 +287,20 @@ function fit_stars_gauss(cut_no_bkg, stars_px_x, stars_px_y; super_samp = 10)
     optimize(to_optimize, start_pars, LevenbergMarquardt())
 end
 
-function fit_stars_prf(supersampled_prf, cut_no_bkg, stars_px_x, stars_px_y)
+function fit_stars_prf(supersampled_prf, cut_no_bkg, stars_px_x, stars_px_y, start_pars)
     width, height = size(cut_no_bkg)
     n_stars = length(stars_px_x)
-    prf_cuts = get_prf_cut.(Ref(supersampled_prf), width, height, stars_px_x, stars_px_y)
-    function to_optimize(pars)
-        model = deepcopy(cut_no_bkg)
+    prf_cuts = vec.(get_prf_cut.(Ref(supersampled_prf), width, height, stars_px_x, stars_px_y))
+    model_start = vec(deepcopy(cut_no_bkg))
+    
+    function to_optimize!(model, pars)
+        model .= model_start
         for i_star = 1:n_stars
-            model = model .- prf_cuts[i_star] * abs(pars[i_star])
+            model .= model - prf_cuts[i_star] * abs(pars[i_star])
         end
-
-        return vec(model)
     end
 
-    start_pars = fill(100.0, n_stars)
-
-    optimize(to_optimize, start_pars, LevenbergMarquardt())
+    optimize!(LeastSquaresProblem(x = start_pars, f! = to_optimize!, output_length = width*height), LevenbergMarquardt())
 end
 
 function fit_stars_prf_bkg(supersampled_prf, cut, stars_px_x, stars_px_y)
@@ -734,8 +732,9 @@ end
 begin
     cut = 1000
     prf = get_tesscut_prf_supersampled(fits)
-    # bkg = get_n_min_median_background(flux_cuts[:,:,cut], size(flux_cuts)[1]*size(flux_cuts)[2] ÷ 4)
-    res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y)
+    bkg = get_n_min_median_background(flux_cuts[:,:,cut], size(flux_cuts)[1]*size(flux_cuts)[2] ÷ 4)
+    start_pars = fill(100.0, n_stars)
+    res = fit_stars_prf(prf, flux_cuts[:,:,cut], stars_x, stars_y, start_pars)
     star_flux = res.minimizer[star_index]
     bkg_plane = res.minimizer[end-3:end]
     bkg_plane[1:3] /= √(sum(bkg_plane[1:3] .^ 2))
@@ -743,9 +742,11 @@ begin
     cut_width, cut_height = size(flux_cuts)[1:2]
 
     bkg_cut = zeros(cut_width, cut_height)
-    for x_px = 1:cut_width, y_px = 1:cut_height
-        bkg_cut[x_px, y_px] = (bkg_plane[end] - bkg_plane[1]*x_px - bkg_plane[2]*y_px)/bkg_plane[3]
-    end
+    # for x_px = 1:cut_width, y_px = 1:cut_height
+    #     bkg_cut[x_px, y_px] = (bkg_plane[end] - bkg_plane[1]*x_px - bkg_plane[2]*y_px)/bkg_plane[3]
+    # end
+
+    bkg_cut .= bkg
 
     PRFs = [get_prf_cut(prf, 15, 15, stars_x[i_star], stars_y[i_star])*abs(res.minimizer[i_star]) for i_star = 1:n_stars]
     bkg = res.minimizer[end]
@@ -792,10 +793,13 @@ begin
     prf = get_tesscut_prf_supersampled(fits)
     prf_lc = zeros(n_cuts)
     start_pars = fill(100.0, n_stars + 4)
+    cut_height, cut_width,n_cuts = size(flux_cuts)
     iter = ProgressBar(1:n_cuts)
+
     for cut = iter
-        res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y, start_pars)
-        # start_pars .= res.minimizer
+        bkg = get_n_min_mean_background(flux_cuts[:,:,cut], cut_width*cut_height ÷ 4)
+        res = fit_stars_prf(prf, flux_cuts[:,:,cut] .- bkg, stars_x, stars_y, start_pars)
+        start_pars .= res.minimizer
         prf_lc[cut] = res.minimizer[star_index]
         set_postfix(iter, Flux=@sprintf("%.2f", prf_lc[cut]))
     end
