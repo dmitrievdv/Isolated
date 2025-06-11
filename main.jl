@@ -797,9 +797,10 @@ begin
     iter = ProgressBar(1:n_cuts)
 
     for cut = iter
+        start_pars = fill(100.0, n_stars + 4)
         bkg = get_n_min_mean_background(flux_cuts[:,:,cut], cut_width*cut_height ÷ 4)
         res = fit_stars_prf(prf, flux_cuts[:,:,cut] .- bkg, stars_x, stars_y, start_pars)
-        start_pars .= res.minimizer
+        # start_pars .= res.minimizer
         prf_lc[cut] = res.minimizer[star_index]
         set_postfix(iter, Flux=@sprintf("%.2f", prf_lc[cut]))
     end
