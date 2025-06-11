@@ -795,6 +795,7 @@ begin
     start_pars = fill(100.0, n_stars + 4)
     iter = ProgressBar(1:n_cuts)
     for cut = iter
+        start_pars = fill(100.0, n_stars + 4)
         res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y, start_pars)
         # start_pars .= res.minimizer
         prf_lc[cut] = res.minimizer[star_index]
