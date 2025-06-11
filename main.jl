@@ -342,7 +342,7 @@ function fit_stars_prf_flat_bkg(supersampled_prf, cut, stars_px_x, stars_px_y, s
         end
     end
 
-    optimize!(LeastSquaresProblem(x = start_pars, f! = to_optimize!, output_length = width*height), LevenbergMarquardt())
+    optimize!(LeastSquaresProblem(x = start_pars, f! = to_optimize!, output_length = width*height), LevenbergMarquardt(), x_tol = 1e-10, f_tol = 1e-10, g_tol = 1e-10)
 end
 
 function get_tess_ffi_coordinates(α, δ, sector)
@@ -735,7 +735,8 @@ begin
     cut = 1000
     prf = get_tesscut_prf_supersampled(fits)
     # bkg = get_n_min_median_background(flux_cuts[:,:,cut], size(flux_cuts)[1]*size(flux_cuts)[2] ÷ 4)
-    res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y)
+    start_pars = fill(100.0, n_stars+4)
+    res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y, start_pars)
     star_flux = res.minimizer[star_index]
     bkg_plane = res.minimizer[end-3:end]
     bkg_plane[1:3] /= √(sum(bkg_plane[1:3] .^ 2))
