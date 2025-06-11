@@ -287,22 +287,20 @@ function fit_stars_gauss(cut_no_bkg, stars_px_x, stars_px_y; super_samp = 10)
     optimize(to_optimize, start_pars, LevenbergMarquardt())
 end
 
-function fit_stars_prf(supersampled_prf, cut_no_bkg, stars_px_x, stars_px_y)
+function fit_stars_prf(supersampled_prf, cut_no_bkg, stars_px_x, stars_px_y, start_pars)
     width, height = size(cut_no_bkg)
     n_stars = length(stars_px_x)
-    prf_cuts = get_prf_cut.(Ref(supersampled_prf), width, height, stars_px_x, stars_px_y)
-    function to_optimize(pars)
-        model = deepcopy(cut_no_bkg)
+    prf_cuts = vec.(get_prf_cut.(Ref(supersampled_prf), width, height, stars_px_x, stars_px_y))
+    model_start = vec(deepcopy(cut_no_bkg))
+    
+    function to_optimize!(model, pars)
+        model .= model_start
         for i_star = 1:n_stars
-            model = model .- prf_cuts[i_star] * abs(pars[i_star])
+            model .= model - prf_cuts[i_star] * abs(pars[i_star])
         end
-
-        return vec(model)
     end
 
-    start_pars = fill(100.0, n_stars)
-
-    optimize(to_optimize, start_pars, LevenbergMarquardt())
+    optimize!(LeastSquaresProblem(x = start_pars, f! = to_optimize!, output_length = width*height), LevenbergMarquardt())
 end
 
 function fit_stars_prf_bkg(supersampled_prf, cut, stars_px_x, stars_px_y)
@@ -407,7 +405,7 @@ function get_tesscut_prf_supersampled(cut_fits)
 
     mkpath("prf/$prf_dir")
 
-    println("$prf_url/$prf_dir/$BL_prf_file_name")
+    # println("$prf_url/$prf_dir/$BL_prf_file_name")
 
     if !isfile("prf/$prf_dir/$BL_prf_file_name")
         HTTP.download("$prf_url/$prf_dir/$BL_prf_file_name", "prf/$prf_dir/$BL_prf_file_name")
@@ -439,7 +437,7 @@ function get_tesscut_prf_supersampled(cut_fits)
     for x = 1:prf_width, y = 1:prf_height
         rotated_prf[x, y] = interpolated_prf[prf_width - x + 1, prf_width - y + 1]
     end
-    return rotated_prf
+    return interpolated_prf
 end
 
 function get_prf_cut(prf_supersampled, cut_width, cut_height, x_source, y_source)
@@ -450,19 +448,46 @@ function get_prf_cut(prf_supersampled, cut_width, cut_height, x_source, y_source
     δy = round(Int, (y_source - y_source_px)*9)
 
     prf = zeros(cut_width, cut_height)
+    supersampled_width, supersampled_height = size(prf_supersampled)
 
     centered_supersampled_sum = [55,63]
 
     correct_bound(i) = i ≥ 1 ? (i ≤ 117 ? i : 117) : 1
 
+    supersampled_mask = zeros(supersampled_width, supersampled_height)
+
     for x_px = 1:cut_width, y_px = 1:cut_height
-        Δx = round(Int, (x_source - x_px)*9)
-        Δy = round(Int, (y_source - y_px)*9)
+        x_prf_source = (x_px - x_source)*9 + 59
+        y_prf_source = (y_px - y_source)*9 + 59
+        # Δx_int = round(Int, Δx)
+        # Δy_int = round(Int, Δy)
 
-        prf_supersampled_sum_x = range.(correct_bound.(centered_supersampled_sum .+ Δx)...)
-        prf_supersampled_sum_y = range.(correct_bound.(centered_supersampled_sum .+ Δy)...)
+        # Δx_frac = Δx - Δx_int
+        # Δy_frac = Δy - Δy_int
 
-        prf[x_px, y_px] = sum(prf_supersampled[prf_supersampled_sum_x, prf_supersampled_sum_y])/81
+        supersampled_mask .= 1.0
+
+        for x_prf = 1:supersampled_width
+            for y_prf = 1:supersampled_height
+                if (abs(x_prf - x_prf_source) ≥ 5) | (abs(y_prf - y_prf_source) ≥ 5)
+                    supersampled_mask[x_prf, y_prf] = 0.0
+                    continue
+                end
+                if (abs(x_prf - x_prf_source) ≤ 4) & (abs(y_prf - y_prf_source) ≤ 4)
+                    supersampled_mask[x_prf, y_prf] = 1.0
+                    # println("1.0")
+                    continue
+                end
+                if abs(x_prf - x_prf_source) > 4
+                    supersampled_mask[x_prf, y_prf] *= 5 - abs(x_prf - x_prf_source)
+                end
+                if abs(y_prf - y_prf_source) > 4
+                    supersampled_mask[x_prf, y_prf] *= 5 - abs(y_prf - y_prf_source)
+                end
+            end
+        end
+        # println(sum(prf_supersampled .* supersampled_mask))
+        prf[x_px, y_px] = sum(prf_supersampled .* supersampled_mask)/81
         if prf[x_px, y_px] < 2e-4
             prf[x_px, y_px] = 0.0
         end
@@ -558,7 +583,8 @@ df_stars = CSV.read("isolated_224.csv", DataFrame)
 
 
 begin 
-star_name = "T Cha"
+star_name = "V718 Per"
+mkpath("$star_directory/$(get_nospace_star_name(star_name))")
 gaia_data_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_target.csv"
 gaia_data = if !isfile(gaia_data_file) 
     data = get_star_gaia_data(star_name)
@@ -572,11 +598,12 @@ nospace_star_name = get_nospace_star_name(star_name)
 if !isfile("$star_directory/$nospace_star_name/$nospace_star_name.zip")
     get_tess_cutouts(ra, dec, 15, 15; star_name = star_name)
 end
+sectors = get_tess_sectors(star_name)
 end 
 
 begin
 sectors = get_tess_sectors(star_name)
-sector = sectors[4]
+sector = sectors[1]
 fits = get_star_tesscut_fits(star_name, sector)
 flux_cuts = read(fits[2], "FLUX")
 n_px = size(flux_cuts)[1]*size(flux_cuts)[2]
@@ -732,10 +759,10 @@ begin
 end
 
 begin
-    cut = 1000
+    cut = 800
     prf = get_tesscut_prf_supersampled(fits)
-    # bkg = get_n_min_median_background(flux_cuts[:,:,cut], size(flux_cuts)[1]*size(flux_cuts)[2] ÷ 4)
-    start_pars = fill(100.0, n_stars+4)
+    bkg = get_n_min_median_background(flux_cuts[:,:,cut], size(flux_cuts)[1]*size(flux_cuts)[2] ÷ 4)
+    start_pars = fill(100.0, n_stars + 4)
     res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y, start_pars)
     star_flux = res.minimizer[star_index]
     bkg_plane = res.minimizer[end-3:end]
@@ -747,18 +774,19 @@ begin
     for x_px = 1:cut_width, y_px = 1:cut_height
         bkg_cut[x_px, y_px] = (bkg_plane[end] - bkg_plane[1]*x_px - bkg_plane[2]*y_px)/bkg_plane[3]
     end
+    # bkg_cut .= bkg
 
     PRFs = [get_prf_cut(prf, 15, 15, stars_x[i_star], stars_y[i_star])*abs(res.minimizer[i_star]) for i_star = 1:n_stars]
     bkg = res.minimizer[end]
     PRF_cut = sum(PRFs) .+ bkg_cut
 
     fig_prf = Figure()
-    ax_prf = Axis(fig_prf[1,1], aspect = DataAspect(), title = "PRF Model, no bkg")
-    hm_prf = heatmap!(ax_prf, log10.(abs.(PRF_cut .- bkg_cut)), colorrange = (0, 4.5))    
+    ax_prf = Axis(fig_prf[1,1], aspect = DataAspect(), title = "PRF Model (with bkg)")
+    hm_prf = heatmap!(ax_prf, log10.(abs.(PRF_cut)), colorrange = (2, 4.5))    
     Colorbar(fig_prf[1,2], hm_prf, label = "lg TESS Flux")
 
-    ax_flux = Axis(fig_prf[2,1], aspect = DataAspect(), title = "Observed, no bkg")
-    hm_flux = heatmap!(ax_flux, log10.(abs.(flux_cuts[:,:,cut] .- bkg_cut)), colorrange = (0, 4.5)) 
+    ax_flux = Axis(fig_prf[2,1], aspect = DataAspect(), title = "Observed")
+    hm_flux = heatmap!(ax_flux, log10.(abs.(flux_cuts[:,:,cut])), colorrange = (2, 4.5)) 
     Colorbar(fig_prf[2,2], hm_flux, label = "lg TESS Flux")
    
 
@@ -792,13 +820,19 @@ end
 begin
     prf = get_tesscut_prf_supersampled(fits)
     prf_lc = zeros(n_cuts)
-    start_pars = fill(100.0, n_stars + 4)
+    n_bright = min(n_stars, 20)
+    bright_indeces = sortperm(stars_mag)[1:n_bright]
+    star_bright_index = findfirst(x -> x == gaia_data.source_id, df_gaia_stars.source_id[bright_indeces])
+    bright_stars_x = stars_x[bright_indeces]
+    bright_stars_y = stars_y[bright_indeces]
+
+    start_pars = fill(100.0, n_bright + 4)
     iter = ProgressBar(1:n_cuts)
     for cut = iter
-        start_pars = fill(100.0, n_stars + 4)
-        res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y, start_pars)
-        # start_pars .= res.minimizer
-        prf_lc[cut] = res.minimizer[star_index]
+        start_pars[1:n_bright] = fill(100.0, n_bright)
+        res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], bright_stars_x, bright_stars_y, start_pars)
+        start_pars .= res.minimizer
+        prf_lc[cut] = res.minimizer[star_bright_index]
         set_postfix(iter, Flux=@sprintf("%.2f", prf_lc[cut]))
     end
 end
@@ -810,6 +844,19 @@ begin
     lines!(ax_prflc, mjds, calc_tess_magniude.(abs.(prf_lc)), label = "TESS PRF")
     Legend(fig_prflc[1,1], ax_prflc, tellwidth = false, valign = :top, halign = :right)
     fig_prflc
+end
+
+begin
+    fig_app_err = Figure()
+    ax_app_err = Axis(fig_app_err[1,1])
+    xlims!(ax_app_err, (9,12))
+    ax_lc_err = Axis(fig_app_err[1,3], yreversed = true)
+    ylims!(ax_lc_err, (12,9))
+    sc_app_err = scatter!(ax_app_err, calc_tess_magniude.(abs.(prf_lc)), calc_tess_magniude.(abs.(prf_lc)) - calc_tess_magniude.(phot_flux), color = mjds)
+    Colorbar(fig_app_err[1, 2], sc_app_err)
+    lines!(ax_lc_err, mjds, calc_tess_magniude.(phot_flux), label = "Aperture")
+    lines!(ax_lc_err, mjds, calc_tess_magniude.(abs.(prf_lc)), label = "TESS PRF")
+    fig_app_err
 end
 
 # df_isolated = begin
