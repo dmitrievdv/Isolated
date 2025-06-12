@@ -431,12 +431,6 @@ function get_tesscut_prf_supersampled(cut_fits)
            -(ccd_y - T_prf_row)*(ccd_x - L_prf_col)*BR_prf 
            +(ccd_y - T_prf_row)*(ccd_x - R_prf_col)*BL_prf)/(T_prf_row - B_prf_row)/(R_prf_col - L_prf_col)
 
-    rotated_prf = zeros(size(interpolated_prf))
-    prf_height, prf_width = size(interpolated_prf)
-
-    for x = 1:prf_width, y = 1:prf_height
-        rotated_prf[x, y] = interpolated_prf[prf_width - x + 1, prf_width - y + 1]
-    end
     return interpolated_prf
 end
 
@@ -575,6 +569,16 @@ function create_gaia_datafiles(star_name; rewrite = false)
     end
 end
 
+function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
+    n_stars = length(stars_x)
+    start_pars = fill(100.0, n_stars+4)
+    cut_width, cut_height = size(flux_cut)
+    res = fit_stars_prf_flat_bkg(supersampled_prf, flux_cut, stars_x, stars_y, start_pars)
+    PRF_cut = sum([res.minimizer[i_star]*get_prf_cut(supersampled_prf, cut_width, cut_height, stars_x[i_star], stars_y[i_star]) for i_star = 1:n_stars])
+    quartile = sort(vec(PRF_cut))[cut_width*cut_height ÷ 4]
+    return findall(x -> x<quartile, PRF_cut)
+end
+
 # df_stars = get_simbad_young_stars(12, 8)
 # CSV.write("young_simbad.csv", df_stars)
 df_stars = CSV.read("isolated_224.csv", DataFrame)
@@ -583,7 +587,7 @@ df_stars = CSV.read("isolated_224.csv", DataFrame)
 
 
 begin 
-star_name = "V718 Per"
+star_name = "RY Lup"
 mkpath("$star_directory/$(get_nospace_star_name(star_name))")
 gaia_data_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_target.csv"
 gaia_data = if !isfile(gaia_data_file) 
