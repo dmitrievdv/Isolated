@@ -162,6 +162,14 @@ function calc_aperture_photometry(cut, star_px_x, star_px_y, aperture_radius)
     return photometry(ap, cut .- bkg)[3]
 end
 
+function calc_aperture_photometry_bkg_pixels(cut, bkg_positions, star_px_x, star_px_y, aperture_radius)
+    # px_width, px_height = size(cut)
+    # n_px = px_width*px_height
+    bkg_cut = fit_flat_background(cut, bkg_positions)
+    ap = CircularAperture(star_px_x, star_px_y, aperture_radius)
+    return photometry(ap, cut .- bkg_cut)[3]
+end
+
 function get_true_radec(α_0, δ_0, Δα, Δδ)
     α_0_rad = α_0/180*π
     δ_0_rad = δ_0/180*π
@@ -579,6 +587,28 @@ function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
     return findall(x -> x<quartile, PRF_cut)
 end
 
+function fit_flat_background(flux_cut, bkg_positions)
+    cut_width, cut_height = size(flux_cut)
+    bkg_xs = [index[1] for index in bkg_positions]
+    bkg_ys = [index[2] for index in bkg_positions]
+    bkg_fluxes = flux_cut[bkg_positions]
+
+    function to_optimize(pars)
+        normal = √(pars[1]^2 + pars[2]^2 + pars[3]^2)
+        return bkg_fluxes - (pars[4]*normal .- pars[1]*bkg_xs - pars[2]*bkg_ys)/pars[3]
+    end
+
+    bkg_plane = optimize(to_optimize, [0.0,0.0,1.0,100.0], LevenbergMarquardt()).minimizer
+
+    bkg_cut = zeros(cut_width, cut_height)
+    normal = √(bkg_plane[1]^2 + bkg_plane[2]^2 + bkg_plane[3]^2)
+    for x = 1:cut_width, y = 1:cut_height
+        bkg_cut[x,y] = (bkg_plane[4]*normal - bkg_plane[1]*x - bkg_plane[2]*y)/bkg_plane[3]
+    end
+
+    return bkg_cut
+end
+
 # df_stars = get_simbad_young_stars(12, 8)
 # CSV.write("young_simbad.csv", df_stars)
 df_stars = CSV.read("isolated_224.csv", DataFrame)
@@ -587,7 +617,7 @@ df_stars = CSV.read("isolated_224.csv", DataFrame)
 
 
 begin 
-star_name = "RY Lup"
+star_name = "T Cha"
 mkpath("$star_directory/$(get_nospace_star_name(star_name))")
 gaia_data_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_target.csv"
 gaia_data = if !isfile(gaia_data_file) 
@@ -607,7 +637,7 @@ end
 
 begin
 sectors = get_tess_sectors(star_name)
-sector = sectors[1]
+sector = sectors[4]
 fits = get_star_tesscut_fits(star_name, sector)
 flux_cuts = read(fits[2], "FLUX")
 n_px = size(flux_cuts)[1]*size(flux_cuts)[2]
@@ -654,7 +684,10 @@ end
 
 cuts = [flux_cuts[:,:,i_cut] for i_cut = 1:n_cuts]
 
-phot_flux = calc_aperture_photometry.(cuts, star_px..., 2.5)
+prf = get_tesscut_prf_supersampled(fits)
+bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, stars_x, stars_y)
+
+phot_flux = calc_aperture_photometry_bkg_pixels.(cuts, Ref(bkg_pixels), star_px..., 2.5)
 end
 
 begin 
@@ -665,8 +698,10 @@ ax_light_curve = Axis(fig[3,0:3], yreversed = true, ylabel = "TESS magnitude", x
 
 cut_slider = Slider(fig[4, 0:3], range = 1:n_cuts, startvalue = 500)
 
-next_button = Button(fig[6,0:1], label = "Next")
-prev_button = Button(fig[6,2:3], label = "Prev")
+next_button = Button(fig[6,0], label = "Next")
+prev_button = Button(fig[6,3], label = "Prev")
+bkg_check= Checkbox(fig[6,1], checked = false, tellwidth = false, halign = :right)
+bkg_check_label = Label(fig[6,2], "Background pixels", halign = :left, tellwidth = false)
 
 max_flux_i_cut = findmax(phot_flux)[2]
 # xlabel!(ax_cut, @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
@@ -684,7 +719,7 @@ ylims!(ax_arrows, -1.2, 1.2)
 text!(ax_arrows, α_arrow_label..., text = "α", align = (:center, :center))
 text!(ax_arrows, δ_arrow_label..., text = "δ", align = (:center, :center))
 
-arrows!(ax_arrows, [0, 0], [0, 0], [Δα[1], Δδ[1]], [Δα[2], Δδ[2]])
+arrows2d!(ax_arrows, [0, 0], [0, 0], [Δα[1], Δδ[1]], [Δα[2], Δδ[2]])
 hidedecorations!(ax_arrows)
 hidespines!(ax_arrows)
 # ax2 = Axis(fig[1,2])
@@ -717,8 +752,9 @@ on(cut_slider.value) do val
 end
 
 cut_hm_data = lift(i_cut) do i_cut
-    bkg = get_n_min_mean_background(flux_cuts[:,:,i_cut], n_px ÷ 4)
-    log10.(abs.(flux_cuts[:,:,i_cut] .- bkg))
+    bkg_cut = fit_flat_background(flux_cuts[:,:,i_cut], bkg_pixels)
+    # bkg = get_n_min_mean_background(flux_cuts[:,:,i_cut], n_px ÷ 4)
+    log10.(abs.(flux_cuts[:,:,i_cut] - bkg_cut))
 end
 
 
@@ -727,8 +763,8 @@ cut_slider_label = Label(fig[5, 0:3], text = @lift "MJD = "*string(mjds[$i_cut])
 
 # bkg = get_n_min_mean_background(flux_cuts[:,:,500], n_px ÷ 4)
 # bkg = 160
-max_flux_bkg = get_n_min_mean_background(flux_cuts[:,:,max_flux_i_cut], n_px ÷ 4)
-max_flux_hm_data = flux_cuts[:,:,max_flux_i_cut] .- max_flux_bkg
+max_flux_bkg = fit_flat_background(flux_cuts[:,:,max_flux_i_cut], bkg_pixels)
+max_flux_hm_data = flux_cuts[:,:,max_flux_i_cut] - max_flux_bkg
 max_flux_hm_data_no_bkg = flux_cuts[:,:,max_flux_i_cut]
 
 hm = heatmap!(ax_cut, cut_hm_data, colorrange = (0,max(minimum(max_flux_hm_data), log10(1.5e5))))
@@ -737,6 +773,9 @@ for i_size = 1:n_sizes
     scatter!(ax_cut, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
                             markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
 end
+
+scatter!(ax_cut, [index[1] for index in bkg_pixels], [index[2] for index in bkg_pixels]; 
+            color = :red, marker = :xcross, alpha = @lift($(bkg_check.checked) ? 1.0 : 0.0))
 
 scatter!(ax_cut, star_px...; marker = :cross, color = :magenta, label = star_name)
 Colorbar(fig[1:2,3], hm, label = "lg TESS flux")
@@ -785,12 +824,12 @@ begin
     PRF_cut = sum(PRFs) .+ bkg_cut
 
     fig_prf = Figure()
-    ax_prf = Axis(fig_prf[1,1], aspect = DataAspect(), title = "PRF Model (with bkg)")
-    hm_prf = heatmap!(ax_prf, log10.(abs.(PRF_cut)), colorrange = (2, 4.5))    
+    ax_prf = Axis(fig_prf[1,1], aspect = DataAspect(), title = "PRF Model")
+    hm_prf = heatmap!(ax_prf, log10.(abs.(PRF_cut .- bkg_cut)), colorrange = (2, 4.5))    
     Colorbar(fig_prf[1,2], hm_prf, label = "lg TESS Flux")
 
     ax_flux = Axis(fig_prf[2,1], aspect = DataAspect(), title = "Observed")
-    hm_flux = heatmap!(ax_flux, log10.(abs.(flux_cuts[:,:,cut])), colorrange = (2, 4.5)) 
+    hm_flux = heatmap!(ax_flux, log10.(abs.(flux_cuts[:,:,cut] .- bkg_cut)), colorrange = (2, 4.5)) 
     Colorbar(fig_prf[2,2], hm_flux, label = "lg TESS Flux")
    
 
