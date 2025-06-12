@@ -609,6 +609,91 @@ function fit_flat_background(flux_cut, bkg_positions)
     return bkg_cut
 end
 
+function load_star_gaia_data(star_name)
+    mkpath("$star_directory/$(get_nospace_star_name(star_name))")
+    gaia_data_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_target.csv"
+    if !isfile(gaia_data_file) 
+        data = get_star_gaia_data(star_name)
+        CSV.write(gaia_data_file, DataFrame(data))
+        data
+    else
+        CSV.read(gaia_data_file, DataFrame)[1, :]
+    end
+end
+
+function load_tess_cutouts(star_name, cut_width, cut_height)
+    mkpath("$star_directory/$(get_nospace_star_name(star_name))")
+    gaia_data = load_star_gaia_data(star_name)
+    ra, dec = gaia_data[[:ra, :dec]]
+    nospace_star_name = get_nospace_star_name(star_name)
+    if !isfile("$star_directory/$nospace_star_name/$nospace_star_name.zip")
+        get_tess_cutouts(ra, dec, cut_width, cut_height; star_name = star_name)
+    end
+end
+
+function load_gaia_stars_in_view_data(star_name, fits, Δm_R)
+    gaia_data = load_star_gaia_data(star_name)
+    star_R = gaia_data.phot_rp_mean_mag
+    corners = get_tesscut_corners(fits)
+    println(sector)
+    gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_stars_in_view_sector_$sector.csv"
+    if !isfile(gaia_stars_file) 
+        data = get_gaia_stars_in_poly(corners, star_R + Δm_R)
+        reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
+        reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
+        conversion_matrix_px_to_radec = [read_key(fits[2], "11PC4")[1] read_key(fits[2], "12PC4")[1]
+                                         read_key(fits[2], "21PC4")[1] read_key(fits[2], "22PC4")[1]]
+
+        conversion_matrix_radec_to_px = inv(conversion_matrix_px_to_radec)
+        n_stars = nrow(data) 
+
+        stars_x = zeros(n_stars)
+        stars_y = zeros(n_stars)
+        stars_mag = zeros(n_stars)
+
+        for i_star = 1:n_stars
+            star_radec = [data.ra[i_star], data.dec[i_star]]
+            delta_radec = get_rel_radec(reference_radec..., star_radec...)
+            delta_radec[1] = delta_radec[1]
+            stars_mag[i_star] = df_gaia_stars.phot_rp_mean_mag[i_star]
+            stars_x[i_star], stars_y[i_star] = reference_px + conversion_matrix_radec_to_px * delta_radec
+        end
+
+        data[!, :px_x] = stars_x
+        data[!, :px_y] = stars_y
+
+        CSV.write(gaia_stars_file, data)
+    else
+        CSV.read(gaia_stars_file, DataFrame)
+    end
+end
+
+function load_light_curve(star_name, sector)
+    fits = get_star_tesscut_fits(star_name, sector)
+    flux_cuts = read(fits[2], "FLUX")
+    n_cuts= size(flux_cuts)[3]
+
+    mjds = read(fits[2], "TIME")
+
+    gaia_stars_data = load_gaia_stars_in_view_data(star_name, fits, Δm_R)
+
+    light_curve_file = "$star_directory/$nospace_star_name/light_curve_sector_$sector.csv"
+
+    if !isfile(light_curve_file)
+        prf = get_tesscut_prf_supersampled(fits)
+        bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, gaia_stars_data.px_x, gaia_stars_data.px_y)
+
+        cuts = [flux_cuts[:,:,i_cut] for i_cut = 1:n_cuts]
+        phot_flux = calc_aperture_photometry_bkg_pixels.(cuts, Ref(bkg_pixels), star_px..., 2.5)
+
+        lc_df = DataFrame(:MJD => mjds, :FLUX => phot_flux, :MAG => calc_tess_magniude.(phot_flux))
+        CSV.write("$star_directory/$nospace_star_name/light_curve_sector_$sector.csv", lc_df)
+        lc_df
+    else
+        CSV.read(light_curve_file, DataFrame)
+    end
+end
+
 # df_stars = get_simbad_young_stars(12, 8)
 # CSV.write("young_simbad.csv", df_stars)
 df_stars = CSV.read("isolated_224.csv", DataFrame)
@@ -647,7 +732,7 @@ mjds = read(fits[2], "TIME")
 
 reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
 reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
-cos_dec = cos(reference_radec[2]/180*π)
+# cos_dec = cos(reference_radec[2]/180*π)
 conversion_matrix_px_to_radec = [read_key(fits[2], "11PC4")[1] read_key(fits[2], "12PC4")[1]
                                  read_key(fits[2], "21PC4")[1] read_key(fits[2], "22PC4")[1]]
 
@@ -664,7 +749,7 @@ df_gaia_stars = if !isfile(gaia_stars_file)
 else
     CSV.read(gaia_stars_file, DataFrame)
 end
-n_stars = nrow(df_gaia_stars)
+n_stars = nrow(df_gaia_stars) 
 
 star_index = findfirst(x -> x == gaia_data.source_id, df_gaia_stars.source_id)
 
@@ -688,6 +773,10 @@ prf = get_tesscut_prf_supersampled(fits)
 bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, stars_x, stars_y)
 
 phot_flux = calc_aperture_photometry_bkg_pixels.(cuts, Ref(bkg_pixels), star_px..., 2.5)
+
+lc_df = DataFrame(:MJD => mjds, :FLUX => phot_flux, :MAG => calc_tess_magniude.(phot_flux))
+CSV.write("$star_directory/$nospace_star_name/light_curve_sector_$sector.csv", lc_df)
+
 end
 
 begin 
