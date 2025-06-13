@@ -8,12 +8,13 @@ function get_tess_cutouts(star_ra, star_dec, width, height; star_name = "star", 
     mkpath("$star_directory/$nospace_star_name")
     url = "https://mast.stsci.edu/tesscut/"
     api = "api/v0.1/astrocut?ra=$star_ra&dec=$star_dec&y=$height&x=$width"
+    cutouts_file = "$star_directory/$nospace_star_name/$(width)x$(height)/$(nospace_star_name).zip"
     try 
-        HTTP.download(url*api, "$star_directory/$nospace_star_name/$nospace_star_name.zip")
+        HTTP.download(url*api, cutouts_file)
     catch e
         if isa(e, HTTP.StatusError)
             println(e.response["location"])
-            HTTP.download(e.response["location"], "$star_directory/$nospace_star_name/$nospace_star_name.zip")
+            HTTP.download(e.response["location"], cutouts_file)
         else
             throw(e)
         end

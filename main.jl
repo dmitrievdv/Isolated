@@ -165,6 +165,9 @@ end
 function calc_aperture_photometry_bkg_pixels(cut, bkg_positions, star_px_x, star_px_y, aperture_radius)
     # px_width, px_height = size(cut)
     # n_px = px_width*px_height
+    if !isnothing(findfirst(x -> abs(x) < 1e-8, cut))
+        return NaN
+    end
     bkg_cut = fit_flat_background(cut, bkg_positions)
     ap = CircularAperture(star_px_x, star_px_y, aperture_radius)
     return photometry(ap, cut .- bkg_cut)[3]
@@ -584,7 +587,9 @@ function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
     res = fit_stars_prf_flat_bkg(supersampled_prf, flux_cut, stars_x, stars_y, start_pars)
     PRF_cut = sum([res.minimizer[i_star]*get_prf_cut(supersampled_prf, cut_width, cut_height, stars_x[i_star], stars_y[i_star]) for i_star = 1:n_stars])
     quartile = sort(vec(PRF_cut))[cut_width*cut_height ÷ 4]
-    return findall(x -> x<quartile, PRF_cut)
+    # println(PRF_cut)
+    # println(quartile)
+    return findall(x -> quartile - x > -1e-8, PRF_cut)
 end
 
 function fit_flat_background(flux_cut, bkg_positions)
@@ -593,6 +598,12 @@ function fit_flat_background(flux_cut, bkg_positions)
     bkg_ys = [index[2] for index in bkg_positions]
     bkg_fluxes = flux_cut[bkg_positions]
 
+    bkg_cut = zeros(cut_width, cut_height)
+    if isempty(bkg_positions)
+        bkg_cut .= NaN
+        return bkg_cut
+    end
+
     function to_optimize(pars)
         normal = √(pars[1]^2 + pars[2]^2 + pars[3]^2)
         return bkg_fluxes - (pars[4]*normal .- pars[1]*bkg_xs - pars[2]*bkg_ys)/pars[3]
@@ -600,7 +611,7 @@ function fit_flat_background(flux_cut, bkg_positions)
 
     bkg_plane = optimize(to_optimize, [0.0,0.0,1.0,100.0], LevenbergMarquardt()).minimizer
 
-    bkg_cut = zeros(cut_width, cut_height)
+    
     normal = √(bkg_plane[1]^2 + bkg_plane[2]^2 + bkg_plane[3]^2)
     for x = 1:cut_width, y = 1:cut_height
         bkg_cut[x,y] = (bkg_plane[4]*normal - bkg_plane[1]*x - bkg_plane[2]*y)/bkg_plane[3]
@@ -621,23 +632,37 @@ function load_star_gaia_data(star_name)
     end
 end
 
+load_tess_cutouts(star_name, cut_size) = load_tess_cutouts(star_name, cut_size, cut_size)
+
 function load_tess_cutouts(star_name, cut_width, cut_height)
     mkpath("$star_directory/$(get_nospace_star_name(star_name))")
     gaia_data = load_star_gaia_data(star_name)
     ra, dec = gaia_data[[:ra, :dec]]
     nospace_star_name = get_nospace_star_name(star_name)
-    if !isfile("$star_directory/$nospace_star_name/$nospace_star_name.zip")
+    cutouts_file = "$star_directory/$nospace_star_name/$(cut_width)x$(cut_height)/$(nospace_star_name).zip"
+    if !isfile(cutouts_file)
+        mkpath("$star_directory/$nospace_star_name/$(cut_width)x$(cut_height)")
         get_tess_cutouts(ra, dec, cut_width, cut_height; star_name = star_name)
     end
+
+    archive = ZipReader(mmap(open(cutouts_file)))
+    entry_names = zip_names(archive)
+
+    all_fits = FITS.(zip_readentry.(Ref(archive), entry_names))
+    sectors = [read_key(fits[1], "SECTOR")[1] for fits in all_fits]
+    return Dict([key => value for (key, value) in zip(sectors, all_fits)])
 end
 
 function load_gaia_stars_in_view_data(star_name, fits, Δm_R)
     gaia_data = load_star_gaia_data(star_name)
     star_R = gaia_data.phot_rp_mean_mag
     corners = get_tesscut_corners(fits)
-    println(sector)
-    gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_stars_in_view_sector_$sector.csv"
+    cut_width, cut_height = read_key(fits[3], "NAXIS1")[1], read_key(fits[3], "NAXIS2")[1] 
+    sector = read_key(fits[1], "SECTOR")[1]
+    # println(sector)
+    gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/gaia_stars_in_view_sector_$sector.csv"
     if !isfile(gaia_stars_file) 
+        mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
         data = get_gaia_stars_in_poly(corners, star_R + Δm_R)
         reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
         reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
@@ -655,7 +680,7 @@ function load_gaia_stars_in_view_data(star_name, fits, Δm_R)
             star_radec = [data.ra[i_star], data.dec[i_star]]
             delta_radec = get_rel_radec(reference_radec..., star_radec...)
             delta_radec[1] = delta_radec[1]
-            stars_mag[i_star] = df_gaia_stars.phot_rp_mean_mag[i_star]
+            stars_mag[i_star] = data.phot_rp_mean_mag[i_star]
             stars_x[i_star], stars_y[i_star] = reference_px + conversion_matrix_radec_to_px * delta_radec
         end
 
@@ -663,35 +688,206 @@ function load_gaia_stars_in_view_data(star_name, fits, Δm_R)
         data[!, :px_y] = stars_y
 
         CSV.write(gaia_stars_file, data)
+        data
     else
         CSV.read(gaia_stars_file, DataFrame)
     end
 end
 
-function load_light_curve(star_name, sector)
-    fits = get_star_tesscut_fits(star_name, sector)
+load_light_curve(star_name, sector, cut_size) = load_light_curve(star_name, sector, cut_size, cut_size)
+
+function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5)
+    fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
     flux_cuts = read(fits[2], "FLUX")
     n_cuts= size(flux_cuts)[3]
 
     mjds = read(fits[2], "TIME")
 
     gaia_stars_data = load_gaia_stars_in_view_data(star_name, fits, Δm_R)
+    gaia_data = load_star_gaia_data(star_name)
 
-    light_curve_file = "$star_directory/$nospace_star_name/light_curve_sector_$sector.csv"
+    star_index = findfirst(s -> s == gaia_data.source_id, gaia_stars_data.source_id)
+    star_px = gaia_stars_data.px_x[star_index], gaia_stars_data.px_y[star_index]
+
+    light_curve_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv"
 
     if !isfile(light_curve_file)
+        mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
         prf = get_tesscut_prf_supersampled(fits)
         bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, gaia_stars_data.px_x, gaia_stars_data.px_y)
-
+        # println(gaia_stars_data.px_x)
+        # println(gaia_stars_data.px_y)
+        # println(bkg_pixels)
         cuts = [flux_cuts[:,:,i_cut] for i_cut = 1:n_cuts]
         phot_flux = calc_aperture_photometry_bkg_pixels.(cuts, Ref(bkg_pixels), star_px..., 2.5)
 
-        lc_df = DataFrame(:MJD => mjds, :FLUX => phot_flux, :MAG => calc_tess_magniude.(phot_flux))
-        CSV.write("$star_directory/$nospace_star_name/light_curve_sector_$sector.csv", lc_df)
+        lc_df = DataFrame(:MJD => mjds, :FLUX => phot_flux, :MAG => calc_tess_magniude.(abs.(phot_flux)))
+        CSV.write("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv", lc_df)
         lc_df
     else
         CSV.read(light_curve_file, DataFrame)
     end
+end
+
+function is_in_sector(α, δ, sector)
+    ptr = @ccall "tess_point_c/libtess_stars2px.so.1.0.1".tess_stars2px_sector(α::Float64, δ::Float64, sector::Int)::Ptr{Cdouble}
+    px_coord = unsafe_wrap(Vector{Float64}, ptr, 2)
+    if (px_coord[1] < 0.0) | (px_coord[2] < 0.0)
+        return false
+    else
+        return true
+    end
+end
+
+function find_tess_sectors(α, δ, max_sector)
+    sectors = Int[]
+    for sector in 1:max_sector
+        if is_in_sector(α, δ, sector)
+            push!(sectors, sector)
+        end
+    end
+    return sectors
+end
+
+function find_tess_sectors(star_name, max_sector)
+    gaia_df = load_star_gaia_data(star_name)
+    α, δ = gaia_df.ra, gaia_df.dec
+    sectors = Int[]
+    for sector in 1:max_sector
+        if is_in_sector(α, δ, sector)
+            push!(sectors, sector)
+        end
+    end
+    return sectors
+end
+
+function plot_cuts(star_name, sector, cut_width, cut_height)
+    fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
+    reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
+    reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
+    conversion_matrix_px_to_radec = [read_key(fits[2], "11PC4")[1] read_key(fits[2], "12PC4")[1]
+                                 read_key(fits[2], "21PC4")[1] read_key(fits[2], "22PC4")[1]]
+
+    conversion_matrix_radec_to_px = inv(conversion_matrix_px_to_radec)
+
+    flux_cuts = read(fits[2], "FLUX")
+    n_cuts = size(flux_cuts)[3]
+
+    fig = Figure()
+
+    ax_cut = Axis(fig[1:2,1:2], title = star_name, aspect = DataAspect())
+    ax_arrows = Axis(fig[2,0], aspect = DataAspect(), title = @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
+    ax_light_curve = Axis(fig[3,0:3], yreversed = true, ylabel = "TESS magnitude", xlabel = "MJD")
+
+    cut_slider = Slider(fig[4, 0:3], range = 1:n_cuts, startvalue = 500)
+
+    next_button = Button(fig[6,0], label = "Next")
+    prev_button = Button(fig[6,3], label = "Prev")
+    bkg_check= Checkbox(fig[6,1], checked = false, tellwidth = false, halign = :right)
+    bkg_check_label = Label(fig[6,2], "Background pixels", halign = :left, tellwidth = false)
+
+    df_lc = load_light_curve(star_name, sector, cut_size)
+    phot_flux = df_lc.FLUX; mjds = df_lc.MJD
+    df_star = load_star_gaia_data(star_name)
+    frame_stars_df = load_gaia_stars_in_view_data(star_name, fits, 5)
+
+    star_index = findfirst(x -> x == df_star.source_id, frame_stars_df.source_id)
+    stars_x = frame_stars_df.px_x; stars_y = frame_stars_df.px_y
+    star_px = frame_stars_df.px_x[star_index], frame_stars_df.px_y[star_index]
+
+    stars_mag = frame_stars_df.phot_rp_mean_mag
+
+    prf = get_tesscut_prf_supersampled(fits)
+    bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, stars_x, stars_y)
+
+    max_flux_i_cut = findmax(df_lc.FLUX)[2]
+    # xlabel!(ax_cut, @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
+
+    Δδ = conversion_matrix_radec_to_px[:,2]/180
+    Δα = conversion_matrix_radec_to_px[:,1]/180
+
+    xlims!(ax_arrows, -1.2, 1.2)
+    ylims!(ax_arrows, -1.2, 1.2)
+
+    α_arrow_label = Δα + 0.3*Δδ
+    δ_arrow_label = Δδ + 0.3*Δα
+
+
+    text!(ax_arrows, α_arrow_label..., text = "α", align = (:center, :center))
+    text!(ax_arrows, δ_arrow_label..., text = "δ", align = (:center, :center))
+
+    arrows2d!(ax_arrows, [0, 0], [0, 0], [Δα[1], Δδ[1]], [Δα[2], Δδ[2]])
+    hidedecorations!(ax_arrows)
+    hidespines!(ax_arrows)
+    # ax2 = Axis(fig[1,2])
+
+    min_mag = minimum(stars_mag)
+    max_mag = maximum(stars_mag)
+    min_int_mag = round(Int, min_mag)
+    max_int_mag = round(Int, max_mag)
+    n_sizes = max_int_mag - min_int_mag + 1
+    stars_int_mag = round.(Int, stars_mag)
+
+    sizes_groups_stars_x = [stars_x[stars_int_mag .== int_mag] for int_mag = max_int_mag:-1:min_int_mag]
+    sizes_groups_stars_y = [stars_y[stars_int_mag .== int_mag] for int_mag = max_int_mag:-1:min_int_mag]
+    sizes = (maximum(stars_mag) .- stars_mag)
+
+    i_cut = Observable(500)
+
+    on(next_button.clicks) do n
+        i_cut[] += 1
+        i_cut[] = (i_cut[] - 1) % n_cuts + 1
+    end
+
+    on(prev_button.clicks) do n
+        i_cut[] -= 1
+        i_cut[] = (i_cut[] - 1) % n_cuts + 1
+    end
+
+    on(cut_slider.value) do val
+        i_cut[] = val
+    end
+
+    cut_hm_data = lift(i_cut) do i_cut
+        bkg_cut = fit_flat_background(flux_cuts[:,:,i_cut], bkg_pixels)
+        # bkg = get_n_min_mean_background(flux_cuts[:,:,i_cut], n_px ÷ 4)
+        log10.(abs.(flux_cuts[:,:,i_cut] - bkg_cut))
+    end
+
+
+
+    cut_slider_label = Label(fig[5, 0:3], text = @lift @sprintf("MJD = %.4f, i_cut = %d, mag = %.2f", mjds[$i_cut], $i_cut, df_lc.MAG[$i_cut]))
+
+    # bkg = get_n_min_mean_background(flux_cuts[:,:,500], n_px ÷ 4)
+    # bkg = 160
+    max_flux_bkg = fit_flat_background(flux_cuts[:,:,max_flux_i_cut], bkg_pixels)
+    max_flux_hm_data = flux_cuts[:,:,max_flux_i_cut] - max_flux_bkg
+    max_flux_hm_data_no_bkg = flux_cuts[:,:,max_flux_i_cut]
+
+    hm = heatmap!(ax_cut, cut_hm_data, colorrange = (0,max(minimum(max_flux_hm_data), log10(1.5e5))))
+    # sc = scatter!(ax_cut, stars_x, stars_y, markersize = 5*sizes, color = :lightgray)
+    for i_size = 1:n_sizes
+        scatter!(ax_cut, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
+                                markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
+    end
+
+    scatter!(ax_cut, [index[1] for index in bkg_pixels], [index[2] for index in bkg_pixels]; 
+            color = :red, marker = :xcross, alpha = @lift($(bkg_check.checked) ? 1.0 : 0.0))
+
+    scatter!(ax_cut, star_px...; marker = :cross, color = :magenta, label = star_name)
+    Colorbar(fig[1:2,3], hm, label = "lg TESS flux")
+    Legend(fig[1,0], ax_cut, "GAIA R mag")
+
+    slider_time = @lift mjds[$i_cut]
+    slider_flux = @lift phot_flux[$i_cut]
+
+    lines!(ax_light_curve, mjds, calc_tess_magniude.(phot_flux))
+    vlines!(ax_light_curve, slider_time; color = :red)
+    scatter!(ax_light_curve, @lift Point2f(mjds[$i_cut], calc_tess_magniude(phot_flux[$i_cut])); color = :red)
+
+
+    # Colorbar(fig[1,2], sc)
+    fig
 end
 
 # df_stars = get_simbad_young_stars(12, 8)
@@ -701,295 +897,159 @@ df_stars = CSV.read("isolated_224.csv", DataFrame)
 # function plot_cutout(star_name, i_sector, i_cut, )
 
 
-begin 
-star_name = "T Cha"
-mkpath("$star_directory/$(get_nospace_star_name(star_name))")
-gaia_data_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_target.csv"
-gaia_data = if !isfile(gaia_data_file) 
-    data = get_star_gaia_data(star_name)
-    CSV.write(gaia_data_file, DataFrame(data))
-    data
-else
-    CSV.read(gaia_data_file, DataFrame)[1, :]
-end
-ra, dec = gaia_data[[:ra, :dec]]
-nospace_star_name = get_nospace_star_name(star_name)
-if !isfile("$star_directory/$nospace_star_name/$nospace_star_name.zip")
-    get_tess_cutouts(ra, dec, 15, 15; star_name = star_name)
-end
-sectors = get_tess_sectors(star_name)
-end 
+isolated_df = CSV.read("isolated_334.csv", DataFrame)
 
-begin
-sectors = get_tess_sectors(star_name)
-sector = sectors[4]
-fits = get_star_tesscut_fits(star_name, sector)
-flux_cuts = read(fits[2], "FLUX")
-n_px = size(flux_cuts)[1]*size(flux_cuts)[2]
-n_cuts= size(flux_cuts)[3]
+rand_indeces = mod.(rand(Int, 10), nrow(isolated_df)) .+ 1
 
-mjds = read(fits[2], "TIME")
+star_names = isolated_df.star_name[rand_indeces]
 
-reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
-reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
-# cos_dec = cos(reference_radec[2]/180*π)
-conversion_matrix_px_to_radec = [read_key(fits[2], "11PC4")[1] read_key(fits[2], "12PC4")[1]
-                                 read_key(fits[2], "21PC4")[1] read_key(fits[2], "22PC4")[1]]
-
-conversion_matrix_radec_to_px = inv(conversion_matrix_px_to_radec)
-
-corners = get_tesscut_corners(fits)
-Δm_R = 5
-star_R = gaia_data.phot_rp_mean_mag
-gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_stars_in_view_sector_$sector.csv"
-df_gaia_stars = if !isfile(gaia_stars_file) 
-    data = get_gaia_stars_in_poly(corners, star_R + Δm_R)
-    CSV.write(gaia_stars_file, data)
-    data
-else
-    CSV.read(gaia_stars_file, DataFrame)
-end
-n_stars = nrow(df_gaia_stars) 
-
-star_index = findfirst(x -> x == gaia_data.source_id, df_gaia_stars.source_id)
-
-stars_x = zeros(n_stars)
-stars_y = zeros(n_stars)
-stars_mag = zeros(n_stars)
-
-star_px = reference_px + conversion_matrix_radec_to_px * get_rel_radec(reference_radec..., ra, dec)
-
-for i_star = 1:n_stars
-    star_radec = [df_gaia_stars.ra[i_star], df_gaia_stars.dec[i_star]]
-    delta_radec = get_rel_radec(reference_radec..., star_radec...)
-    delta_radec[1] = delta_radec[1]
-    stars_mag[i_star] = df_gaia_stars.phot_rp_mean_mag[i_star]
-    stars_x[i_star], stars_y[i_star] = reference_px + conversion_matrix_radec_to_px * delta_radec
-end
-
-cuts = [flux_cuts[:,:,i_cut] for i_cut = 1:n_cuts]
-
-prf = get_tesscut_prf_supersampled(fits)
-bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, stars_x, stars_y)
-
-phot_flux = calc_aperture_photometry_bkg_pixels.(cuts, Ref(bkg_pixels), star_px..., 2.5)
-
-lc_df = DataFrame(:MJD => mjds, :FLUX => phot_flux, :MAG => calc_tess_magniude.(phot_flux))
-CSV.write("$star_directory/$nospace_star_name/light_curve_sector_$sector.csv", lc_df)
-
-end
-
-begin 
-fig = Figure()
-ax_cut = Axis(fig[1:2,1:2], title = star_name, aspect = DataAspect())
-ax_arrows = Axis(fig[2,0], aspect = DataAspect(), title = @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
-ax_light_curve = Axis(fig[3,0:3], yreversed = true, ylabel = "TESS magnitude", xlabel = "MJD")
-
-cut_slider = Slider(fig[4, 0:3], range = 1:n_cuts, startvalue = 500)
-
-next_button = Button(fig[6,0], label = "Next")
-prev_button = Button(fig[6,3], label = "Prev")
-bkg_check= Checkbox(fig[6,1], checked = false, tellwidth = false, halign = :right)
-bkg_check_label = Label(fig[6,2], "Background pixels", halign = :left, tellwidth = false)
-
-max_flux_i_cut = findmax(phot_flux)[2]
-# xlabel!(ax_cut, @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
-
-Δδ = conversion_matrix_radec_to_px[:,2]/180
-Δα = conversion_matrix_radec_to_px[:,1]/180
-
-xlims!(ax_arrows, -1.2, 1.2)
-ylims!(ax_arrows, -1.2, 1.2)
-
-α_arrow_label = Δα + 0.3*Δδ
-δ_arrow_label = Δδ + 0.3*Δα
-
-
-text!(ax_arrows, α_arrow_label..., text = "α", align = (:center, :center))
-text!(ax_arrows, δ_arrow_label..., text = "δ", align = (:center, :center))
-
-arrows2d!(ax_arrows, [0, 0], [0, 0], [Δα[1], Δδ[1]], [Δα[2], Δδ[2]])
-hidedecorations!(ax_arrows)
-hidespines!(ax_arrows)
-# ax2 = Axis(fig[1,2])
-
-min_mag = minimum(stars_mag)
-max_mag = maximum(stars_mag)
-min_int_mag = round(Int, min_mag)
-max_int_mag = round(Int, max_mag)
-n_sizes = max_int_mag - min_int_mag + 1
-stars_int_mag = round.(Int, stars_mag)
-
-sizes_groups_stars_x = [stars_x[stars_int_mag .== int_mag] for int_mag = max_int_mag:-1:min_int_mag]
-sizes_groups_stars_y = [stars_y[stars_int_mag .== int_mag] for int_mag = max_int_mag:-1:min_int_mag]
-sizes = (maximum(stars_mag) .- stars_mag)
-
-i_cut = Observable(500)
-
-on(next_button.clicks) do n
-    i_cut[] += 1
-    i_cut[] = (i_cut[] - 1) % n_cuts + 1
-end
-
-on(prev_button.clicks) do n
-    i_cut[] -= 1
-    i_cut[] = (i_cut[] - 1) % n_cuts + 1
-end
-
-on(cut_slider.value) do val
-    i_cut[] = val
-end
-
-cut_hm_data = lift(i_cut) do i_cut
-    bkg_cut = fit_flat_background(flux_cuts[:,:,i_cut], bkg_pixels)
-    # bkg = get_n_min_mean_background(flux_cuts[:,:,i_cut], n_px ÷ 4)
-    log10.(abs.(flux_cuts[:,:,i_cut] - bkg_cut))
-end
-
-
-
-cut_slider_label = Label(fig[5, 0:3], text = @lift "MJD = "*string(mjds[$i_cut])*", i_cut = "*string($i_cut))
-
-# bkg = get_n_min_mean_background(flux_cuts[:,:,500], n_px ÷ 4)
-# bkg = 160
-max_flux_bkg = fit_flat_background(flux_cuts[:,:,max_flux_i_cut], bkg_pixels)
-max_flux_hm_data = flux_cuts[:,:,max_flux_i_cut] - max_flux_bkg
-max_flux_hm_data_no_bkg = flux_cuts[:,:,max_flux_i_cut]
-
-hm = heatmap!(ax_cut, cut_hm_data, colorrange = (0,max(minimum(max_flux_hm_data), log10(1.5e5))))
-# sc = scatter!(ax_cut, stars_x, stars_y, markersize = 5*sizes, color = :lightgray)
-for i_size = 1:n_sizes
-    scatter!(ax_cut, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
-                            markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
-end
-
-scatter!(ax_cut, [index[1] for index in bkg_pixels], [index[2] for index in bkg_pixels]; 
-            color = :red, marker = :xcross, alpha = @lift($(bkg_check.checked) ? 1.0 : 0.0))
-
-scatter!(ax_cut, star_px...; marker = :cross, color = :magenta, label = star_name)
-Colorbar(fig[1:2,3], hm, label = "lg TESS flux")
-Legend(fig[1,0], ax_cut, "GAIA R mag")
-
-slider_time = @lift mjds[$i_cut]
-slider_flux = @lift phot_flux[$i_cut]
-
-lines!(ax_light_curve, mjds, calc_tess_magniude.(phot_flux))
-vlines!(ax_light_curve, slider_time; color = :red)
-scatter!(ax_light_curve, @lift Point2f(mjds[$i_cut], calc_tess_magniude(phot_flux[$i_cut])); color = :red)
-
-
-# Colorbar(fig[1,2], sc)
-fig
-end
-
-begin
-    fig3d = Figure()
-    ax = Axis3(fig3d[1,1], aspect = :equal)
-    surface!(ax, max_flux_hm_data_no_bkg)
-    # scale!(ax.scene, 1, 1, 5)
-    fig3d
-end
-
-begin
-    cut = 800
-    prf = get_tesscut_prf_supersampled(fits)
-    bkg = get_n_min_median_background(flux_cuts[:,:,cut], size(flux_cuts)[1]*size(flux_cuts)[2] ÷ 4)
-    start_pars = fill(100.0, n_stars + 4)
-    res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y, start_pars)
-    star_flux = res.minimizer[star_index]
-    bkg_plane = res.minimizer[end-3:end]
-    bkg_plane[1:3] /= √(sum(bkg_plane[1:3] .^ 2))
-
-    cut_width, cut_height = size(flux_cuts)[1:2]
-
-    bkg_cut = zeros(cut_width, cut_height)
-    for x_px = 1:cut_width, y_px = 1:cut_height
-        bkg_cut[x_px, y_px] = (bkg_plane[end] - bkg_plane[1]*x_px - bkg_plane[2]*y_px)/bkg_plane[3]
+for star_name in star_names
+    println(star_name)
+# star_name = "FU Ori"
+    cut_size = 15
+    sectors = find_tess_sectors(star_name, 72)
+    for sector in sectors
+        load_light_curve(star_name, sector, cut_size)
     end
-    # bkg_cut .= bkg
+end
 
-    PRFs = [get_prf_cut(prf, 15, 15, stars_x[i_star], stars_y[i_star])*abs(res.minimizer[i_star]) for i_star = 1:n_stars]
-    bkg = res.minimizer[end]
-    PRF_cut = sum(PRFs) .+ bkg_cut
+    # plot_cuts(star_name, sectors[1], cut_size, cut_size)
+# star_gaia_df = load_star_gaia_data(star_name)
+# ra, dec = star_gaia_df.ra, star_gaia_df.dec
+# for 
 
-    fig_prf = Figure()
-    ax_prf = Axis(fig_prf[1,1], aspect = DataAspect(), title = "PRF Model")
-    hm_prf = heatmap!(ax_prf, log10.(abs.(PRF_cut .- bkg_cut)), colorrange = (2, 4.5))    
-    Colorbar(fig_prf[1,2], hm_prf, label = "lg TESS Flux")
 
-    ax_flux = Axis(fig_prf[2,1], aspect = DataAspect(), title = "Observed")
-    hm_flux = heatmap!(ax_flux, log10.(abs.(flux_cuts[:,:,cut] .- bkg_cut)), colorrange = (2, 4.5)) 
-    Colorbar(fig_prf[2,2], hm_flux, label = "lg TESS Flux")
+# begin 
+# star_name = "T Tau"
+# cut_size = 15
+# gaia_data = load_star_gaia_data(star_name)
+# ra, dec = gaia_data[[:ra, :dec]]
+# fits_sectors = load_tess_cutouts(star_name, cut_size)
+# sectors = collect(keys(fits_sectors))
+# end 
+
+# begin
+# fits_sectors = load_tess_cutouts(star_name, cut_size)
+# sectors = collect(keys(fits_sectors))
+# sector = sectors[1]
+# fits = fits_sectors[sector]
+# df_lc = load_light_curve(star_name, sector, cut_size)
+# cut_size = 15
+# frame_stars_df = load_gaia_stars_in_view_data(star_name, fits, 5)
+# end
+
+# begin 
+
+# end
+
+# begin
+#     fig3d = Figure()
+#     ax = Axis3(fig3d[1,1], aspect = :equal)
+#     surface!(ax, max_flux_hm_data_no_bkg)
+#     # scale!(ax.scene, 1, 1, 5)
+#     fig3d
+# end
+
+# begin
+#     cut = 800
+#     prf = get_tesscut_prf_supersampled(fits)
+#     bkg = get_n_min_median_background(flux_cuts[:,:,cut], size(flux_cuts)[1]*size(flux_cuts)[2] ÷ 4)
+#     start_pars = fill(100.0, n_stars + 4)
+#     res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], stars_x, stars_y, start_pars)
+#     star_flux = res.minimizer[star_index]
+#     bkg_plane = res.minimizer[end-3:end]
+#     bkg_plane[1:3] /= √(sum(bkg_plane[1:3] .^ 2))
+
+#     cut_width, cut_height = size(flux_cuts)[1:2]
+
+#     bkg_cut = zeros(cut_width, cut_height)
+#     for x_px = 1:cut_width, y_px = 1:cut_height
+#         bkg_cut[x_px, y_px] = (bkg_plane[end] - bkg_plane[1]*x_px - bkg_plane[2]*y_px)/bkg_plane[3]
+#     end
+#     # bkg_cut .= bkg
+
+#     PRFs = [get_prf_cut(prf, 15, 15, stars_x[i_star], stars_y[i_star])*abs(res.minimizer[i_star]) for i_star = 1:n_stars]
+#     bkg = res.minimizer[end]
+#     PRF_cut = sum(PRFs) .+ bkg_cut
+
+#     fig_prf = Figure()
+#     ax_prf = Axis(fig_prf[1,1], aspect = DataAspect(), title = "PRF Model")
+#     hm_prf = heatmap!(ax_prf, log10.(abs.(PRF_cut .- bkg_cut)), colorrange = (2, 4.5))    
+#     Colorbar(fig_prf[1,2], hm_prf, label = "lg TESS Flux")
+
+#     ax_flux = Axis(fig_prf[2,1], aspect = DataAspect(), title = "Observed")
+#     hm_flux = heatmap!(ax_flux, log10.(abs.(flux_cuts[:,:,cut] .- bkg_cut)), colorrange = (2, 4.5)) 
+#     Colorbar(fig_prf[2,2], hm_flux, label = "lg TESS Flux")
    
 
-    ax_diff = Axis(fig_prf[1,3], aspect = DataAspect(), title = "(Observed - Model) / star_flux")
-    hm_diff = heatmap!(ax_diff, (flux_cuts[:,:,cut].- PRF_cut) ./ star_flux)
-    Colorbar(fig_prf[1,4], hm_diff)
+#     ax_diff = Axis(fig_prf[1,3], aspect = DataAspect(), title = "(Observed - Model) / star_flux")
+#     hm_diff = heatmap!(ax_diff, (flux_cuts[:,:,cut].- PRF_cut) ./ star_flux)
+#     Colorbar(fig_prf[1,4], hm_diff)
 
-    ax_1prf = Axis(fig_prf[2,3], aspect = DataAspect(), title = "PRF")
-    hm_1prf = heatmap!(ax_1prf, log10.(get_prf_cut(prf, cut_width, cut_height, star_px...)))
-    Colorbar(fig_prf[2,4], hm_1prf)
+#     ax_1prf = Axis(fig_prf[2,3], aspect = DataAspect(), title = "PRF")
+#     hm_1prf = heatmap!(ax_1prf, log10.(get_prf_cut(prf, cut_width, cut_height, star_px...)))
+#     Colorbar(fig_prf[2,4], hm_1prf)
 
-    for i_size = 1:n_sizes
-        scatter!(ax_flux, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
-                                markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
-    end
+#     for i_size = 1:n_sizes
+#         scatter!(ax_flux, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
+#                                 markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
+#     end
     
-    scatter!(ax_flux, star_px...; marker = :cross, color = :magenta, label = star_name)
+#     scatter!(ax_flux, star_px...; marker = :cross, color = :magenta, label = star_name)
 
-    for i_size = 1:n_sizes
-        scatter!(ax_prf, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
-                                markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
-    end
+#     for i_size = 1:n_sizes
+#         scatter!(ax_prf, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
+#                                 markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
+#     end
     
-    scatter!(ax_prf, star_px...; marker = :cross, color = :magenta, label = star_name)
+#     scatter!(ax_prf, star_px...; marker = :cross, color = :magenta, label = star_name)
 
-    Legend(fig_prf[1,0], ax_flux, "GAIA R mag", tellwidth = false)
+#     Legend(fig_prf[1,0], ax_flux, "GAIA R mag", tellwidth = false)
 
-    fig_prf
-end
+#     fig_prf
+# end
 
-begin
-    prf = get_tesscut_prf_supersampled(fits)
-    prf_lc = zeros(n_cuts)
-    n_bright = min(n_stars, 20)
-    bright_indeces = sortperm(stars_mag)[1:n_bright]
-    star_bright_index = findfirst(x -> x == gaia_data.source_id, df_gaia_stars.source_id[bright_indeces])
-    bright_stars_x = stars_x[bright_indeces]
-    bright_stars_y = stars_y[bright_indeces]
+# begin
+#     prf = get_tesscut_prf_supersampled(fits)
+#     prf_lc = zeros(n_cuts)
+#     n_bright = min(n_stars, 20)
+#     bright_indeces = sortperm(stars_mag)[1:n_bright]
+#     star_bright_index = findfirst(x -> x == gaia_data.source_id, df_gaia_stars.source_id[bright_indeces])
+#     bright_stars_x = stars_x[bright_indeces]
+#     bright_stars_y = stars_y[bright_indeces]
 
-    start_pars = fill(100.0, n_bright + 4)
-    iter = ProgressBar(1:n_cuts)
-    for cut = iter
-        start_pars[1:n_bright] = fill(100.0, n_bright)
-        res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], bright_stars_x, bright_stars_y, start_pars)
-        start_pars .= res.minimizer
-        prf_lc[cut] = res.minimizer[star_bright_index]
-        set_postfix(iter, Flux=@sprintf("%.2f", prf_lc[cut]))
-    end
-end
+#     start_pars = fill(100.0, n_bright + 4)
+#     iter = ProgressBar(1:n_cuts)
+#     for cut = iter
+#         start_pars[1:n_bright] = fill(100.0, n_bright)
+#         res = fit_stars_prf_flat_bkg(prf, flux_cuts[:,:,cut], bright_stars_x, bright_stars_y, start_pars)
+#         start_pars .= res.minimizer
+#         prf_lc[cut] = res.minimizer[star_bright_index]
+#         set_postfix(iter, Flux=@sprintf("%.2f", prf_lc[cut]))
+#     end
+# end
 
-begin 
-    fig_prflc = Figure()
-    ax_prflc = Axis(fig_prflc[1,1], yreversed = true)
-    lines!(ax_prflc, mjds, calc_tess_magniude.(phot_flux), label = "Aperture")
-    lines!(ax_prflc, mjds, calc_tess_magniude.(abs.(prf_lc)), label = "TESS PRF")
-    Legend(fig_prflc[1,1], ax_prflc, tellwidth = false, valign = :top, halign = :right)
-    fig_prflc
-end
+# begin 
+#     fig_prflc = Figure()
+#     ax_prflc = Axis(fig_prflc[1,1], yreversed = true)
+#     lines!(ax_prflc, mjds, calc_tess_magniude.(phot_flux), label = "Aperture")
+#     lines!(ax_prflc, mjds, calc_tess_magniude.(abs.(prf_lc)), label = "TESS PRF")
+#     Legend(fig_prflc[1,1], ax_prflc, tellwidth = false, valign = :top, halign = :right)
+#     fig_prflc
+# end
 
-begin
-    fig_app_err = Figure()
-    ax_app_err = Axis(fig_app_err[1,1])
-    xlims!(ax_app_err, (9,12))
-    ax_lc_err = Axis(fig_app_err[1,3], yreversed = true)
-    ylims!(ax_lc_err, (12,9))
-    sc_app_err = scatter!(ax_app_err, calc_tess_magniude.(abs.(prf_lc)), calc_tess_magniude.(abs.(prf_lc)) - calc_tess_magniude.(phot_flux), color = mjds)
-    Colorbar(fig_app_err[1, 2], sc_app_err)
-    lines!(ax_lc_err, mjds, calc_tess_magniude.(phot_flux), label = "Aperture")
-    lines!(ax_lc_err, mjds, calc_tess_magniude.(abs.(prf_lc)), label = "TESS PRF")
-    fig_app_err
-end
+# begin
+#     fig_app_err = Figure()
+#     ax_app_err = Axis(fig_app_err[1,1])
+#     xlims!(ax_app_err, (9,12))
+#     ax_lc_err = Axis(fig_app_err[1,3], yreversed = true)
+#     ylims!(ax_lc_err, (12,9))
+#     sc_app_err = scatter!(ax_app_err, calc_tess_magniude.(abs.(prf_lc)), calc_tess_magniude.(abs.(prf_lc)) - calc_tess_magniude.(phot_flux), color = mjds)
+#     Colorbar(fig_app_err[1, 2], sc_app_err)
+#     lines!(ax_lc_err, mjds, calc_tess_magniude.(phot_flux), label = "Aperture")
+#     lines!(ax_lc_err, mjds, calc_tess_magniude.(abs.(prf_lc)), label = "TESS PRF")
+#     fig_app_err
+# end
 
 # df_isolated = begin
 #     df_isolated = DataFrame()
