@@ -1,6 +1,7 @@
 /stars_julia
 /stars_julia/*
 /stars/*
+/plots/*
 /venv/*
 *.csv
 *.fits

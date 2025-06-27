@@ -16,6 +16,10 @@ using LinearAlgebra
 using Statistics
 using LeastSquaresOptim
 using ProgressBars
+using Dates
+using Dierckx
+using LombScargle
+using Logging
 
 star_directory = "stars_julia"
 
@@ -337,6 +341,23 @@ function fit_stars_prf_flat_bkg(supersampled_prf, cut, stars_px_x, stars_px_y, s
     n_stars = length(stars_px_x)
     prf_cuts = vec.(get_prf_cut.(Ref(supersampled_prf), width, height, stars_px_x, stars_px_y))
     model_start = vec(deepcopy(cut))
+
+    function jacobian!(jacob, pars)
+        jacob .= 0.0
+
+        for i_star = 1:n_stars
+            jacob[:,i_star] -= prf_cuts[i_star]*sign(pars[i_star])
+        end
+
+        bkg_plane_normal_length = √(pars[end-3]^2 + pars[end-2]^2 + pars[end-1]^2)
+
+        for x=1:width, y=1:height
+            jacob[(x-1)*width + y, end] = -bkg_plane_normal_length/pars[end-1]
+            jacob[(x-1)*width + y, end-3] = (x - pars[end-3]/bkg_plane_normal_length*pars[end])/pars[end-1]
+            jacob[(x-1)*width + y, end-2] = (y - pars[end-2]/bkg_plane_normal_length*pars[end])/pars[end-1]
+            jacob[(x-1)*width + y, end-1] = (pars[end]*bkg_plane_normal_length - pars[end-3]*x - pars[end-2]*y)/pars[end-1]^2 - 1.0/bkg_plane_normal_length*pars[end] 
+        end
+    end
     
     function to_optimize!(model, pars)
         model .= model_start
@@ -351,7 +372,7 @@ function fit_stars_prf_flat_bkg(supersampled_prf, cut, stars_px_x, stars_px_y, s
         end
     end
 
-    optimize!(LeastSquaresProblem(x = start_pars, f! = to_optimize!, output_length = width*height), LevenbergMarquardt(), x_tol = 1e-10, f_tol = 1e-10, g_tol = 1e-10)
+    optimize!(LeastSquaresProblem(x = start_pars, f! = to_optimize!, g! = jacobian!, output_length = width*height), LevenbergMarquardt(), x_tol = 1e-10, f_tol = 1e-10, g_tol = 1e-10)
 end
 
 function get_tess_ffi_coordinates(α, δ, sector)
@@ -369,11 +390,11 @@ end
 
 function get_tesscut_prf_supersampled(cut_fits)
     α_cut, δ_cut = get_reference_radec(cut_fits)
-    sector = read_key(fits[1], "SECTOR")[1] 
+    sector = read_key(cut_fits[1], "SECTOR")[1] 
     ccd_x, ccd_y = round.(Int, get_tess_ffi_coordinates(α_cut, δ_cut, sector))
 
-    cam = read_key(fits[1], "CAMERA")[1]
-    ccd = read_key(fits[1], "CCD")[1]
+    cam = read_key(cut_fits[1], "CAMERA")[1]
+    ccd = read_key(cut_fits[1], "CCD")[1]
 
     prf_url = "https://archive.stsci.edu/missions/tess/models/prf_fitsfiles"
     prf_dir = "start_s000$(sector > 3 ? 4 : 1)/cam$(cam)_ccd$(ccd)"
@@ -585,11 +606,20 @@ function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
     start_pars = fill(100.0, n_stars+4)
     cut_width, cut_height = size(flux_cut)
     res = fit_stars_prf_flat_bkg(supersampled_prf, flux_cut, stars_x, stars_y, start_pars)
-    PRF_cut = sum([res.minimizer[i_star]*get_prf_cut(supersampled_prf, cut_width, cut_height, stars_x[i_star], stars_y[i_star]) for i_star = 1:n_stars])
-    quartile = sort(vec(PRF_cut))[cut_width*cut_height ÷ 4]
+    PRFs = [abs.(res.minimizer[i_star])*get_prf_cut(supersampled_prf, cut_width, cut_height, stars_x[i_star], stars_y[i_star])  for i_star = 1:n_stars]
+    empty_cut = sum([abs.(res.minimizer[i_star])*fill(get_n_min_median_background(PRFs[i_star], cut_width*cut_height ÷ 4), (cut_width, cut_height)) for i_star = 1:n_stars])
+    PRF_cut = sum(PRFs)
+    quartile = sort(vec(PRF_cut - empty_cut))[cut_width*cut_height ÷ 4]
     # println(PRF_cut)
+    # format = Printf.Format("%8.2f "^15 * "\n")
+    # for i = 1:cut_width
+    #     Printf.format(stdout, format, PRF_cut[:, cut_height - i +1]...)
+    # end
     # println(quartile)
-    return findall(x -> quartile - x > -1e-8, PRF_cut)
+    # for i = 1:cut_width
+    #     Printf.format(stdout, format, empty_cut[:, cut_height - i +1]...)
+    # end
+    return findall(x -> (quartile - x) > -1e-8, PRF_cut - empty_cut)
 end
 
 function fit_flat_background(flux_cut, bkg_positions)
@@ -694,9 +724,9 @@ function load_gaia_stars_in_view_data(star_name, fits, Δm_R)
     end
 end
 
-load_light_curve(star_name, sector, cut_size) = load_light_curve(star_name, sector, cut_size, cut_size)
+load_light_curve(star_name, sector, cut_size; kwargs...) = load_light_curve(star_name, sector, cut_size, cut_size; kwargs...)
 
-function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5)
+function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, rewrite_file = false)
     fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
     flux_cuts = read(fits[2], "FLUX")
     n_cuts= size(flux_cuts)[3]
@@ -711,7 +741,7 @@ function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5)
 
     light_curve_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv"
 
-    if !isfile(light_curve_file)
+    if !isfile(light_curve_file) | rewrite_file
         mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
         prf = get_tesscut_prf_supersampled(fits)
         bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, gaia_stars_data.px_x, gaia_stars_data.px_y)
@@ -890,65 +920,298 @@ function plot_cuts(star_name, sector, cut_width, cut_height)
     fig
 end
 
+function delete_nans(jds, fluxs)
+    # n_fluxs = length(fluxs)
+    cleaned_jds = Float64[]
+    cleaned_fluxs = Float64[]
+
+    for (jd, flux) in zip(jds, fluxs)
+        if !isnan(flux)
+            push!(cleaned_jds, jd)
+            push!(cleaned_fluxs, flux)
+        end
+    end
+
+    cleaned_jds, cleaned_fluxs
+end
+
+function box_smooth(jds, fluxs, jd_box)
+    n_fluxs = length(fluxs)
+    smooth_fluxs = zeros(n_fluxs)
+    
+    for i_flux = 1:n_fluxs
+        jd = jds[i_flux]
+        smooth_fluxs[i_flux] = median(fluxs[@. abs.(jds .- jd) < jd_box])
+    end
+    return smooth_fluxs
+end
+
+function clean_flux_sigma!(jds, fluxs, jd_box, σ_tol, n_out)
+    n_fluxs = length(fluxs)
+    smooth_fluxs = box_smooth(jds, fluxs, jd_box)
+    anomalous_fluxs = fluxs .- smooth_fluxs
+
+    noout_anomalous_fluxs = sort(anomalous_fluxs)[1:end-n_out]
+
+    σ = √(varm(noout_anomalous_fluxs, mean(noout_anomalous_fluxs)))
+
+    for i_flux = 1:n_fluxs
+        if abs(anomalous_fluxs[i_flux]) > σ * σ_tol
+            # println(σ, " ", anomalous_fluxs[i_flux])
+            fluxs[i_flux] = NaN 
+        end
+    end
+
+
+end
+
+function clean_flux!(mjd, flux; pred_tol = 0.1, jd_tol = 0.1)
+    n_flux = length(flux)
+
+    i_flux = 3
+
+    while i_flux <= n_flux
+        pred_point = 2flux[i_flux-1] - flux[i_flux-2]
+
+        if (abs(flux[i_flux] - pred_point) > pred_tol)
+            # println(mjd[i_flux])
+            flux[i_flux] = NaN
+            i_flux += 3
+        end
+
+        if (mjd[i_flux] - mjd[i_flux-1]) > jd_tol
+            flux[i_flux] = NaN
+        end
+        i_flux += 1
+    end
+
+    if abs(flux[1] - 2flux[2] + flux[3]) > pred_tol
+        flux[1] = NaN
+        flux[2] = NaN
+    end
+
+    if abs(flux[end] - 2flux[end-1] + flux[end-2]) > pred_tol
+        flux[end] = NaN
+        flux[end-1] = NaN
+    end
+end
+
+function get_true_jd(mjd)
+    mjd + 2457000
+end
+
+function save_lc_figure(star_name, sector, cut_size; day_step = 2, jd_box = 0.3, σ_tol = 5, n_out = 10)
+    df_lc = load_light_curve(star_name, sector, cut_size; rewrite_file = true)
+    nospace_star_name = get_nospace_star_name(star_name)
+
+    JDs = get_true_jd.(df_lc.MJD)
+
+    JD_start_tick_pos = (round(Int, JDs[1]) ÷ day_step)*day_step
+    JD_end_tick_pos = (round(Int, JDs[end]) ÷ day_step)*day_step
+    JD_tick_positions = [JD_start_tick_pos:day_step:JD_end_tick_pos;]
+    JD_tick_labels = Dates.format.(julian2datetime.(JD_tick_positions), "dd/mm/yy")
+    # date_times = julian2datetime.(JDs)
+
+    fig = Figure(size = (1500,475))
+    ax_lc = Axis(fig[1,1], yreversed = true, 
+                 xticks = (JD_tick_positions, JD_tick_labels),
+                 xticklabelrotation = π/4,
+                 limits = (JD_start_tick_pos-day_step/2, JD_end_tick_pos+day_step/2, nothing, nothing),
+                 aspect = 4,
+                 title = "$star_name, sector $sector")
+
+    # lines!(ax_lc, JDs, df_lc.MAG; linestyle = :dash)
+    nonan_jd, nonan_mag = delete_nans(JDs, df_lc.MAG)
+    clean_flux_sigma!(nonan_jd, nonan_mag, jd_box, σ_tol, n_out)
+    lines!(ax_lc, nonan_jd, nonan_mag)
+    
+    fig
+    mkpath("plots/png/$(cut_size)x$(cut_size)")
+    save("plots/png/$(cut_size)x$(cut_size)/$(nospace_star_name)_sector_$(sector).png", fig)
+end
+
+function find_sampling(jds)
+    return median(jds[2:end] - jds[1:end-1])
+end
+
+function find_ACF(jds, fluxs; oversample = 1.5)
+    sampling = find_sampling(jds)
+    time_length = jds[end] - jds[1]
+    lags = collect(sampling:sampling/oversample:time_length)
+    n_lags = length(lags)
+
+    times = jds .- jds[1]
+    # times_interpolated
+
+    flux_spl = Spline1D(times, fluxs, k = 1)
+    interpolated_fluxs = flux_spl.(lags)
+
+    mean_flux = mean(interpolated_fluxs)
+    flux_dispersion = sum((interpolated_fluxs .- mean_flux) .^ 2) 
+    acf = zeros(n_lags)
+
+    for i_lag = 1:n_lags
+        acf[i_lag] = sum((interpolated_fluxs[1:end - i_lag] .- mean_flux) .* (interpolated_fluxs[1+i_lag:end] .- mean_flux))
+    end
+
+    return lags, acf / flux_dispersion
+end
+
+function get_all_data(star_names, cut_size; rewrite_files = false, save_lc_kwargs...)
+    open("get_all_data.log", "w") do log_io
+        for star_name in star_names[1:end]
+            println("Star $star_name")
+            sectors = try 
+                find_tess_sectors(star_name, 72)
+            catch e
+                showerror(log_io, e, catch_backtrace())
+                Int[]
+            end
+            if isempty(sectors)
+                continue
+            end
+            println(log_io, "Resolved in TESS sectors ", join(string.(sectors), ", "))
+            for sector in sectors
+                print(log_io, "Processing sector $sector: ")
+                try
+                    load_light_curve(star_name, sector, cut_size; rewrite_file = rewrite_files)
+                    print(log_io, "light curve loaded")
+                    save_lc_figure(star_name, sector, cut_size; save_lc_kwargs...)
+                    print(log_io, ", plot saved\n")
+                catch e
+                    showerror(log_io, e, catch_backtrace())
+                end
+            end
+            print(log_io, "\n")
+            flush(log_io)
+        end
+    end
+end
+
 # df_stars = get_simbad_young_stars(12, 8)
 # CSV.write("young_simbad.csv", df_stars)
-df_stars = CSV.read("isolated_224.csv", DataFrame)
+# df_stars = CSV.read("isolated_224.csv", DataFrame)
 
 # function plot_cutout(star_name, i_sector, i_cut, )
 
 
-isolated_df = CSV.read("isolated_334.csv", DataFrame)
+# isolated_df = CSV.read("isolated_334.csv", DataFrame)
 
-rand_indeces = mod.(rand(Int, 10), nrow(isolated_df)) .+ 1
+# star_names = isolated_df.star_name
 
-star_names = isolated_df.star_name[rand_indeces]
+# cut_size = 15
 
-for star_name in star_names
-    println(star_name)
-# star_name = "FU Ori"
-    cut_size = 15
-    sectors = find_tess_sectors(star_name, 72)
-    for sector in sectors
-        load_light_curve(star_name, sector, cut_size)
-    end
-end
+# for star_name in star_names[106:end]
+#     println(star_name)
+# # star_name = "FU Ori"
+    
+#     sectors = find_tess_sectors(star_name, 72)
+#     for sector in sectors
+#         load_light_curve(star_name, sector, cut_size; rewrite_file = false)
+#         save_lc_figure(star_name, sector, cut_size; day_step = 1, jd_box = 0.1, σ_tol = 10)
+#     end
+# end
 
-    # plot_cuts(star_name, sectors[1], cut_size, cut_size)
+# star_name = "V501 Aur"
+# sector = 13
+
+# df_lc = load_light_curve(star_name, sector, 15)
+
+# jds, mags = delete_nans(get_true_jd.(df_lc.MJD), df_lc.MAG)
+
+# fig = Figure()
+# ax = Axis(fig[1,1], yreversed = true)
+# ax_an = Axis(fig[1,2])
+
+# smoothed_mags = box_smooth(jds, mags, 0.3)
+# lines!(ax, jds, mags)
+# lines!(ax, jds, smoothed_mags)
+
+# an_mags = mags .- smoothed_mags
+# mean_an = median(an_mags)
+
+# n_an = length(an_mags)
+
+# an_mags_percentile = sort(an_mags)[1:end-20]
+
+# σ = √(varm(an_mags_percentile, mean_an))
+
+# scatter!(ax_an, jds, an_mags)
+# hlines!(ax_an, [mean_an, mean_an - 10σ, mean_an + 10σ])
+# fig
+# sampling = find_sampling(df_lc.MJD)
+
+# cleaned_mags = df_lc.MAG
+# jds = get_true_jd.(df_lc.MJD)
+# time_length = jds[end] - jds[1]
+# clean_flux!(jds, cleaned_mags; pred_tol = 0.1)
+
+
+# cleaned_jds = jds[@. !isnan(cleaned_mags)]
+# cleaned_mags = df_lc.MAG[@. !isnan(cleaned_mags)]
+
+
+
+# # cleaned_mags = cleaned_mags[@. cleaned_jds > 2459370]
+# # cleaned_jds = cleaned_jds[@. cleaned_jds > 2459370]
+
+
+# n_mags = length(cleaned_mags)
+
+
+# lags, ACF = find_ACF(cleaned_jds, cleaned_mags)
+
+# plan = LombScargle.plan(cleaned_jds, cleaned_mags .- median(cleaned_mags))
+# pgram = lombscargle(plan)
+
+# freq, power = freqpower(pgram)
+# period = findmaxperiod(pgram, [0.1,10])[1]
+# phased_jds = cleaned_jds .% period
+
+# jd_boxes = [0:2*sampling:period;]
+# n_boxes = length(jd_boxes)
+# boxed_mags = zeros(n_mags)
+
+# for i_mag = 1:n_mags
+#     boxed_mags[i_mag] = median(cleaned_mags[@. abs(phased_jds - phased_jds[i_mag]) < period*0.01])
+# end
+
+# mean_mag = mean(cleaned_mags)
+# mag_dispersion = varm(cleaned_mags, mean_mag)
+# mean_phased = mean(cleaned_mags - boxed_mags)
+# mag_phased_dispersion = varm(cleaned_mags - boxed_mags, mean_phased)
+
+# periodicity = mag_phased_dispersion/mag_dispersion
+# println(periodicity)
+
+# fig = Figure()
+# ax_acf = Axis(fig[1,1], xticks = 0:2:30)
+# ax_lc = Axis(fig[2,1], yreversed = true)
+# ax_phased = Axis(fig[2,2], yreversed = true)
+
+# pgram_ticks = [0.1:0.1:1..., 1.5, 2, 3, 5, 10]
+# get_pgram_tick_label(p) = abs(round(Int,p) - p) > 0.01 ? string(p) : string(round(Int,p))
+# pgram_tick_labels = get_pgram_tick_label.(pgram_ticks)
+# ax_pgram = Axis(fig[1,2],
+#                 xticks = (1 ./ pgram_ticks, pgram_tick_labels))
+# xlims!(ax_pgram, 0, 3)
+
+# lines!(ax_acf, lags, ACF)
+# lines!(ax_lc, cleaned_jds, cleaned_mags)
+# lines!(ax_pgram, freq, power)
+
+
+
+# scatter!(ax_phased, phased_jds, cleaned_mags)
+# scatter!(ax_phased, phased_jds, boxed_mags, color = :red)
+# fig
+
+
+
+# plot_cuts(star_name, sectors[1], cut_size, cut_size)
 # star_gaia_df = load_star_gaia_data(star_name)
 # ra, dec = star_gaia_df.ra, star_gaia_df.dec
 # for 
-
-
-# begin 
-# star_name = "T Tau"
-# cut_size = 15
-# gaia_data = load_star_gaia_data(star_name)
-# ra, dec = gaia_data[[:ra, :dec]]
-# fits_sectors = load_tess_cutouts(star_name, cut_size)
-# sectors = collect(keys(fits_sectors))
-# end 
-
-# begin
-# fits_sectors = load_tess_cutouts(star_name, cut_size)
-# sectors = collect(keys(fits_sectors))
-# sector = sectors[1]
-# fits = fits_sectors[sector]
-# df_lc = load_light_curve(star_name, sector, cut_size)
-# cut_size = 15
-# frame_stars_df = load_gaia_stars_in_view_data(star_name, fits, 5)
-# end
-
-# begin 
-
-# end
-
-# begin
-#     fig3d = Figure()
-#     ax = Axis3(fig3d[1,1], aspect = :equal)
-#     surface!(ax, max_flux_hm_data_no_bkg)
-#     # scale!(ax.scene, 1, 1, 5)
-#     fig3d
-# end
 
 # begin
 #     cut = 800

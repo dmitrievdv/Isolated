@@ -1,0 +1,1126 @@
+V1977 Cyg resolved in TESS sectors15, 41, 55, 56
+Processing sector 15: light curve loaded, plot saved
+Processing sector 41: light curve loaded, plot saved
+Processing sector 55: light curve loaded, plot saved
+Processing sector 56: light curve loaded, plot saved
+
+HD 200240 resolved in TESS sectors15, 16, 56
+Processing sector 15: light curve loaded, plot saved
+Processing sector 16: light curve loaded, plot saved
+Processing sector 56: light curve loaded, plot saved
+
+DI Cep resolved in TESS sectors16, 17, 24, 57
+Processing sector 16: light curve loaded, plot saved
+Processing sector 17: light curve loaded, plot saved
+Processing sector 24: light curve loaded, plot saved
+Processing sector 57: light curve loaded, plot saved
+
+V628 Cas resolved in TESS sectors17, 24, 57, 58
+Processing sector 17: light curve loaded, plot saved
+Processing sector 24: light curve loaded, plot saved
+Processing sector 57: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+V374 Cep resolved in TESS sectors17, 18, 24, 57, 58
+Processing sector 17: light curve loaded, plot saved
+Processing sector 18: light curve loaded, plot saved
+Processing sector 24: light curve loaded, plot saved
+Processing sector 57: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+V594 Cas resolved in TESS sectors17, 18, 24, 58
+Processing sector 17: light curve loaded, plot saved
+Processing sector 18: light curve loaded, plot saved
+Processing sector 24: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+V361 Cep resolved in TESS sectors16, 17, 18, 24, 57, 58
+Processing sector 16: light curve loaded, plot saved
+Processing sector 17: light curve loaded, plot saved
+Processing sector 18: light curve loaded, plot saved
+Processing sector 24: light curve loaded, plot saved
+Processing sector 57: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+V399 Cep resolved in TESS sectors17, 18, 24, 25, 58
+Processing sector 17: light curve loaded, plot saved
+Processing sector 18: light curve loaded, plot saved
+Processing sector 24: light curve loaded, plot saved
+Processing sector 25: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+BH Cep resolved in TESS sectors17, 18, 24, 57, 58
+Processing sector 17: light curve loaded, plot saved
+Processing sector 18: light curve loaded, plot saved
+Processing sector 24: light curve loaded, plot saved
+Processing sector 57: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+BD+68 1118 resolved in TESS sectors16, 17, 18, 24, 25, 52, 56, 57, 58
+Processing sector 16: light curve loaded, plot saved
+Processing sector 17: light curve loaded, plot saved
+Processing sector 18: light curve loaded, plot saved
+Processing sector 24: light curve loaded, plot saved
+Processing sector 25: light curve loaded, plot saved
+Processing sector 52: light curve loaded, plot saved
+Processing sector 56: light curve loaded, plot saved
+Processing sector 57: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+V395 Cep resolved in TESS sectors17, 19, 24, 25, 52, 58, 59
+Processing sector 17: light curve loaded, plot saved
+Processing sector 19: light curve loaded, plot saved
+Processing sector 24: light curve loaded, plot saved
+Processing sector 25: light curve loaded, plot saved
+Processing sector 52: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+Processing sector 59: light curve loaded, plot saved
+
+HD 237475 resolved in TESS sectors20, 60
+Processing sector 20: light curve loaded, plot saved
+Processing sector 60: light curve loaded, plot saved
+
+BD+29 525 resolved in TESS sectors18, 42, 43, 44, 58
+Processing sector 18: light curve loaded, plot saved
+Processing sector 42: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+V898 Per resolved in TESS sectors18, 42, 43, 44, 58
+Processing sector 18: light curve loaded, plot saved
+Processing sector 42: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+V1269 Tau resolved in TESS sectors18, 42, 43, 44
+Processing sector 18: light curve loaded, plot saved
+Processing sector 42: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+XY Per resolved in TESS sectors18
+Processing sector 18: light curve loaded, plot saved
+
+LkHA 330 resolved in TESS sectors18, 43, 44, 58
+Processing sector 18: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+V1297 Tau resolved in TESS sectors44
+Processing sector 44: light curve loaded, plot saved
+
+V1299 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1300 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1194 Tau resolved in TESS sectors42, 43, 44
+Processing sector 42: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V410 Tau resolved in TESS sectors19, 43, 44
+Processing sector 19: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+MethodError: no method matching getindex(::Nothing, ::Symbol)
+The function `getindex` exists, but no method is defined for this combination of argument types.
+Stacktrace:
+  [1] get_star_gaia_data(star_name::String31; gaia::String)
+    @ Main ~/work/obs/Isolated/databases.jl:9
+  [2] get_star_gaia_data
+    @ ~/work/obs/Isolated/databases.jl:1 [inlined]
+  [3] load_star_gaia_data(star_name::String31)
+    @ Main ~/work/obs/Isolated/main.jl:657
+  [4] find_tess_sectors(star_name::String31, max_sector::Int64)
+    @ Main ~/work/obs/Isolated/main.jl:783
+  [5] (::var"#98#99"{Bool, @Kwargs{day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String31}, Int64})(log_io::IOStream)
+    @ Main ~/work/obs/Isolated/main.jl:1063
+  [6] open(::var"#98#99"{Bool, @Kwargs{day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String31}, Int64}, ::String, ::Vararg{String}; kwargs::@Kwargs{})
+    @ Base ./io.jl:410
+  [7] open
+    @ ./io.jl:407 [inlined]
+  [8] #get_all_data#97
+    @ ~/work/obs/Isolated/main.jl:1060 [inlined]
+  [9] top-level scope
+    @ ~/work/obs/Isolated/getdata.jl:6
+ [10] eval
+    @ ./boot.jl:430 [inlined]
+ [11] include_string(mapexpr::typeof(REPL.softscope), mod::Module, code::String, filename::String)
+    @ Base ./loading.jl:2734
+ [12] invokelatest(::Any, ::Any, ::Vararg{Any}; kwargs::@Kwargs{})
+    @ Base ./essentials.jl:1055
+ [13] invokelatest(::Any, ::Any, ::Vararg{Any})
+    @ Base ./essentials.jl:1052
+ [14] inlineeval(m::Module, code::String, code_line::Int64, code_column::Int64, file::String; softscope::Bool)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:271
+ [15] (::VSCodeServer.var"#69#74"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:181
+ [16] withpath(f::VSCodeServer.var"#69#74"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, path::String)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/repl.jl:276
+ [17] (::VSCodeServer.var"#68#73"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:179
+ [18] hideprompt(f::VSCodeServer.var"#68#73"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/repl.jl:38
+ [19] #67
+    @ ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:150 [inlined]
+ [20] with_logstate(f::VSCodeServer.var"#67#72"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:522
+ [21] with_logger
+    @ ./logging/logging.jl:632 [inlined]
+ [22] (::VSCodeServer.var"#66#71"{VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:263
+ [23] #invokelatest#2
+    @ ./essentials.jl:1055 [inlined]
+ [24] invokelatest(::Any)
+    @ Base ./essentials.jl:1052
+ [25] (::VSCodeServer.var"#64#65")()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:34V1199 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1302 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1308 Tau resolved in TESS sectors44
+Processing sector 44: light curve loaded, plot saved
+
+HD 26172 resolved in TESS sectors5, 32, 42, 43, 44
+Processing sector 5: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+Processing sector 42: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V987 Tau resolved in TESS sectors19, 43, 44
+Processing sector 19: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+DG Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+T Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1072 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1200 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+HD 286746 resolved in TESS sectors5, 32, 43, 44
+Processing sector 5: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1080 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+DN Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1202 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1319 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1323 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1203 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1073 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+MethodError: no method matching getindex(::Nothing, ::Symbol)
+The function `getindex` exists, but no method is defined for this combination of argument types.
+Stacktrace:
+  [1] get_star_gaia_data(star_name::String31; gaia::String)
+    @ Main ~/work/obs/Isolated/databases.jl:9
+  [2] get_star_gaia_data
+    @ ~/work/obs/Isolated/databases.jl:1 [inlined]
+  [3] load_star_gaia_data(star_name::String31)
+    @ Main ~/work/obs/Isolated/main.jl:657
+  [4] find_tess_sectors(star_name::String31, max_sector::Int64)
+    @ Main ~/work/obs/Isolated/main.jl:783
+  [5] (::var"#98#99"{Bool, @Kwargs{day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String31}, Int64})(log_io::IOStream)
+    @ Main ~/work/obs/Isolated/main.jl:1063
+  [6] open(::var"#98#99"{Bool, @Kwargs{day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String31}, Int64}, ::String, ::Vararg{String}; kwargs::@Kwargs{})
+    @ Base ./io.jl:410
+  [7] open
+    @ ./io.jl:407 [inlined]
+  [8] #get_all_data#97
+    @ ~/work/obs/Isolated/main.jl:1060 [inlined]
+  [9] top-level scope
+    @ ~/work/obs/Isolated/getdata.jl:6
+ [10] eval
+    @ ./boot.jl:430 [inlined]
+ [11] include_string(mapexpr::typeof(REPL.softscope), mod::Module, code::String, filename::String)
+    @ Base ./loading.jl:2734
+ [12] invokelatest(::Any, ::Any, ::Vararg{Any}; kwargs::@Kwargs{})
+    @ Base ./essentials.jl:1055
+ [13] invokelatest(::Any, ::Any, ::Vararg{Any})
+    @ Base ./essentials.jl:1052
+ [14] inlineeval(m::Module, code::String, code_line::Int64, code_column::Int64, file::String; softscope::Bool)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:271
+ [15] (::VSCodeServer.var"#69#74"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:181
+ [16] withpath(f::VSCodeServer.var"#69#74"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, path::String)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/repl.jl:276
+ [17] (::VSCodeServer.var"#68#73"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:179
+ [18] hideprompt(f::VSCodeServer.var"#68#73"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/repl.jl:38
+ [19] #67
+    @ ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:150 [inlined]
+ [20] with_logstate(f::VSCodeServer.var"#67#72"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:522
+ [21] with_logger
+    @ ./logging/logging.jl:632 [inlined]
+ [22] (::VSCodeServer.var"#66#71"{VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:263
+ [23] #invokelatest#2
+    @ ./essentials.jl:1055 [inlined]
+ [24] invokelatest(::Any)
+    @ Base ./essentials.jl:1052
+ [25] (::VSCodeServer.var"#64#65")()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:34V1078 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+StKM 1-497 resolved in TESS sectors5, 32
+Processing sector 5: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+UY Aur resolved in TESS sectors19, 43, 44, 59
+Processing sector 19: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 59: light curve loaded, plot saved
+
+V1329 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+DR Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1206 Tau resolved in TESS sectors5, 32, 43, 44
+Processing sector 5: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1831 Ori resolved in TESS sectors5
+Processing sector 5: light curve loaded, plot saved
+
+V396 Aur resolved in TESS sectors19, 44, 59
+Processing sector 19: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 59: light curve loaded, plot saved
+
+HD 282598 resolved in TESS sectors19, 43, 44, 59
+Processing sector 19: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 59: light curve loaded, plot saved
+
+SU Aur resolved in TESS sectors19, 44, 59
+Processing sector 19: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 59: light curve loaded, plot saved
+
+V501 Aur resolved in TESS sectors19, 43, 44, 59
+Processing sector 19: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 59: light curve loaded, plot saved
+
+V1349 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+HD 31950 resolved in TESS sectors5, 32, 43, 44
+Processing sector 5: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1841 Ori resolved in TESS sectors5, 32, 44
+Processing sector 5: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1406 Ori resolved in TESS sectors5, 32, 43, 44
+Processing sector 5: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+1RXS J045912.4-033711 resolved in TESS sectors5, 32
+Processing sector 5: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V1357 Tau resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1849 Ori resolved in TESS sectors5, 32
+Processing sector 5: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+UX Ori resolved in TESS sectors5, 32
+Processing sector 5: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V1361 Tau resolved in TESS sectors45
+Processing sector 45: light curve loaded, plot saved
+
+RX J0520.5+0616 resolved in TESS sectors32
+Processing sector 32: light curve loaded, plot saved
+
+HD 287803 resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+BD-08 1115 resolved in TESS sectors5, 6, 32
+Processing sector 5: light curve loaded, plot saved
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+HD 36112 resolved in TESS sectors43, 44, 45
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 45: light curve loaded, plot saved
+
+HD 245358 resolved in TESS sectors43, 44, 45
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 45: light curve loaded, plot saved
+
+CQ Tau resolved in TESS sectors43, 44, 45
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 45: light curve loaded, plot saved
+
+HD 245567 resolved in TESS sectors6, 43, 44, 45
+Processing sector 6: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 45: light curve loaded, plot saved
+
+MethodError: no method matching getindex(::Nothing, ::Symbol)
+The function `getindex` exists, but no method is defined for this combination of argument types.
+Stacktrace:
+  [1] get_star_gaia_data(star_name::String31; gaia::String)
+    @ Main ~/work/obs/Isolated/databases.jl:9
+  [2] get_star_gaia_data
+    @ ~/work/obs/Isolated/databases.jl:1 [inlined]
+  [3] load_star_gaia_data(star_name::String31)
+    @ Main ~/work/obs/Isolated/main.jl:657
+  [4] find_tess_sectors(star_name::String31, max_sector::Int64)
+    @ Main ~/work/obs/Isolated/main.jl:783
+  [5] (::var"#98#99"{Bool, @Kwargs{day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String31}, Int64})(log_io::IOStream)
+    @ Main ~/work/obs/Isolated/main.jl:1063
+  [6] open(::var"#98#99"{Bool, @Kwargs{day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String31}, Int64}, ::String, ::Vararg{String}; kwargs::@Kwargs{})
+    @ Base ./io.jl:410
+  [7] open
+    @ ./io.jl:407 [inlined]
+  [8] #get_all_data#97
+    @ ~/work/obs/Isolated/main.jl:1060 [inlined]
+  [9] top-level scope
+    @ ~/work/obs/Isolated/getdata.jl:6
+ [10] eval
+    @ ./boot.jl:430 [inlined]
+ [11] include_string(mapexpr::typeof(REPL.softscope), mod::Module, code::String, filename::String)
+    @ Base ./loading.jl:2734
+ [12] invokelatest(::Any, ::Any, ::Vararg{Any}; kwargs::@Kwargs{})
+    @ Base ./essentials.jl:1055
+ [13] invokelatest(::Any, ::Any, ::Vararg{Any})
+    @ Base ./essentials.jl:1052
+ [14] inlineeval(m::Module, code::String, code_line::Int64, code_column::Int64, file::String; softscope::Bool)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:271
+ [15] (::VSCodeServer.var"#69#74"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:181
+ [16] withpath(f::VSCodeServer.var"#69#74"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, path::String)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/repl.jl:276
+ [17] (::VSCodeServer.var"#68#73"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:179
+ [18] hideprompt(f::VSCodeServer.var"#68#73"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/repl.jl:38
+ [19] #67
+    @ ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:150 [inlined]
+ [20] with_logstate(f::VSCodeServer.var"#67#72"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:522
+ [21] with_logger
+    @ ./logging/logging.jl:632 [inlined]
+ [22] (::VSCodeServer.var"#66#71"{VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:263
+ [23] #invokelatest#2
+    @ ./essentials.jl:1055 [inlined]
+ [24] invokelatest(::Any)
+    @ Base ./essentials.jl:1052
+ [25] (::VSCodeServer.var"#64#65")()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:34V1409 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V451 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V1271 Ori resolved in TESS sectors6
+Processing sector 6: light curve loaded, plot saved
+
+BN Ori resolved in TESS sectors6
+Processing sector 6: light curve loaded, plot saved
+
+V372 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+HD 294243 resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V2239 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V361 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+LP Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V2056 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+RY Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V1321 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+IU Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+EY Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V2087 Ori resolved in TESS sectors32
+Processing sector 32: light curve loaded, plot saved
+
+V380 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+HH Aur resolved in TESS sectors19, 43, 44, 45
+Processing sector 19: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 45: light curve loaded, plot saved
+
+V351 Ori resolved in TESS sectors6
+Processing sector 6: light curve loaded, plot saved
+
+HD 290772 resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V1788 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V1791 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+V1305 Ori resolved in TESS sectors6, 32
+Processing sector 6: light curve loaded, plot saved
+Processing sector 32: light curve loaded, plot saved
+
+HD 249494 resolved in TESS sectors6, 33
+Processing sector 6: light curve loaded, plot saved
+Processing sector 33: light curve loaded, plot saved
+
+MethodError: no method matching getindex(::Nothing, ::Symbol)
+The function `getindex` exists, but no method is defined for this combination of argument types.
+Stacktrace:
+  [1] get_star_gaia_data(star_name::String31; gaia::String)
+    @ Main ~/work/obs/Isolated/databases.jl:9
+  [2] get_star_gaia_data
+    @ ~/work/obs/Isolated/databases.jl:1 [inlined]
+  [3] load_star_gaia_data(star_name::String31)
+    @ Main ~/work/obs/Isolated/main.jl:657
+  [4] find_tess_sectors(star_name::String31, max_sector::Int64)
+    @ Main ~/work/obs/Isolated/main.jl:783
+  [5] (::var"#98#99"{Bool, @Kwargs{day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String31}, Int64})(log_io::IOStream)
+    @ Main ~/work/obs/Isolated/main.jl:1063
+  [6] open(::var"#98#99"{Bool, @Kwargs{day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String31}, Int64}, ::String, ::Vararg{String}; kwargs::@Kwargs{})
+    @ Base ./io.jl:410
+  [7] open
+    @ ./io.jl:407 [inlined]
+  [8] #get_all_data#97
+    @ ~/work/obs/Isolated/main.jl:1060 [inlined]
+  [9] top-level scope
+    @ ~/work/obs/Isolated/getdata.jl:6
+ [10] eval
+    @ ./boot.jl:430 [inlined]
+ [11] include_string(mapexpr::typeof(REPL.softscope), mod::Module, code::String, filename::String)
+    @ Base ./loading.jl:2734
+ [12] invokelatest(::Any, ::Any, ::Vararg{Any}; kwargs::@Kwargs{})
+    @ Base ./essentials.jl:1055
+ [13] invokelatest(::Any, ::Any, ::Vararg{Any})
+    @ Base ./essentials.jl:1052
+ [14] inlineeval(m::Module, code::String, code_line::Int64, code_column::Int64, file::String; softscope::Bool)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:271
+ [15] (::VSCodeServer.var"#69#74"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:181
+ [16] withpath(f::VSCodeServer.var"#69#74"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, path::String)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/repl.jl:276
+ [17] (::VSCodeServer.var"#68#73"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:179
+ [18] hideprompt(f::VSCodeServer.var"#68#73"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/repl.jl:38
+ [19] #67
+    @ ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:150 [inlined]
+ [20] with_logstate(f::VSCodeServer.var"#67#72"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:522
+ [21] with_logger
+    @ ./logging/logging.jl:632 [inlined]
+ [22] (::VSCodeServer.var"#66#71"{VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:263
+ [23] #invokelatest#2
+    @ ./essentials.jl:1055 [inlined]
+ [24] invokelatest(::Any)
+    @ Base ./essentials.jl:1052
+ [25] (::VSCodeServer.var"#64#65")()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:34LkHA 208 resolved in TESS sectors43, 44
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+
+V1307 Ori resolved in TESS sectors6, 33, 43, 44, 45
+Processing sector 6: light curve loaded, plot saved
+Processing sector 33: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 45: light curve loaded, plot saved
+
+V791 Mon resolved in TESS sectors6, 33
+Processing sector 6: light curve loaded, plot saved
+Processing sector 33: light curve loaded, plot saved
+
+HD 256959 resolved in TESS sectors43, 44, 45
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 45: light curve loaded, plot saved
+
+V699 Mon resolved in TESS sectors6, 33
+Processing sector 6: light curve loaded, plot saved
+Processing sector 33: light curve loaded, plot saved
+
+V700 Mon resolved in TESS sectors6, 33
+Processing sector 6: light curve loaded, plot saved
+Processing sector 33: light curve loaded, plot saved
+
+R Mon resolved in TESS sectors6, 33
+Processing sector 6: light curve loaded, plot saved
+Processing sector 33: light curve loaded, plot saved
+
+Z CMa resolved in TESS sectors7, 33
+Processing sector 7: light curve loaded, plot saved
+Processing sector 33: light curve loaded, plot saved
+
+RZ Psc resolved in TESS sectors17, 57
+Processing sector 17: light curve loaded, plot saved
+Processing sector 57: light curve loaded, plot saved
+
+BZ Ari resolved in TESS sectors18, 43, 44, 58
+Processing sector 18: light curve loaded, plot saved
+Processing sector 43: light curve loaded, plot saved
+Processing sector 44: light curve loaded, plot saved
+Processing sector 58: light curve loaded, plot saved
+
+CD-29 8887 resolved in TESS sectors9, 36, 63
+Processing sector 9: light curve loaded, plot saved
+Processing sector 36: light curve loaded, plot saved
+Processing sector 63: light curve loaded, plot saved
+
+HD 125340 resolved in TESS sectors11, 38, 64
+Processing sector 11: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+
+CD-34 10180 resolved in TESS sectors11, 38, 65
+Processing sector 11: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+CD-36 10208 resolved in TESS sectors38, 65
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+HD 144007 resolved in TESS sectors12, 39
+Processing sector 12: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+
+CD-38 10866 resolved in TESS sectors65
+Processing sector 65: light curve loaded, plot saved
+
+RX J1608.9-3905 resolved in TESS sectors65
+Processing sector 65: light curve loaded, plot saved
+
+V1096 Sco resolved in TESS sectors12, 39
+Processing sector 12: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+
+HD 147048 resolved in TESS sectors12, 39
+Processing sector 12: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+
+CD-35 10498 resolved in TESS sectors12, 38, 65
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+RU Lup resolved in TESS sectors12, 65
+Processing sector 12: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+V1547 Sco resolved in TESS sectors12, 39, 65
+Processing sector 12: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+CD-38 13398 resolved in TESS sectors13, 27, 67
+Processing sector 13: light curve loaded, plot saved
+Processing sector 27: light curve loaded, plot saved
+Processing sector 67: light curve loaded, plot saved
+
+HT Lup resolved in TESS sectors12, 38, 65
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+V702 CrA resolved in TESS sectors13, 67
+Processing sector 13: light curve loaded, plot saved
+Processing sector 67: light curve loaded, plot saved
+
+KW Lup resolved in TESS sectors38, 65
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+CD-30 12558 resolved in TESS sectors12, 38, 65
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+HD 176383 resolved in TESS sectors13, 67
+Processing sector 13: light curve loaded, plot saved
+Processing sector 67: light curve loaded, plot saved
+
+CD-27 10866 resolved in TESS sectors12
+Processing sector 12: light curve loaded, plot saved
+
+CD-38 4381 resolved in TESS sectors8, 34, 35, 61, 62
+Processing sector 8: light curve loaded, plot saved
+Processing sector 34: light curve loaded, plot saved
+Processing sector 35: light curve loaded, plot saved
+Processing sector 61: light curve loaded, plot saved
+Processing sector 62: light curve loaded, plot saved
+
+NX Pup resolved in TESS sectors7, 8, 33, 34, 35, 61
+Processing sector 7: light curve loaded, plot saved
+Processing sector 8: light curve loaded, plot saved
+Processing sector 33: light curve loaded, plot saved
+Processing sector 34: light curve loaded, plot saved
+Processing sector 35: light curve loaded, plot saved
+Processing sector 61: light curve loaded, plot saved
+
+V640 Car resolved in TESS sectors9, 10, 36, 37, 63, 64
+Processing sector 9: light curve loaded, plot saved
+Processing sector 10: light curve loaded, plot saved
+Processing sector 36: light curve loaded, plot saved
+Processing sector 37: light curve loaded, plot saved
+Processing sector 63: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+
+WRAY 15-488 resolved in TESS sectors9, 10, 36, 37, 63, 64
+Processing sector 9: light curve loaded, plot saved
+Processing sector 10: light curve loaded, plot saved
+Processing sector 36: light curve loaded, plot saved
+Processing sector 37: light curve loaded, plot saved
+Processing sector 63: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+
+CD-75 392 resolved in TESS sectors3, 10, 11, 12, 33, 37, 38, 39, 64, 65, 66
+Processing sector 3: During the resolution of the non-linear system, the evaluation of the following equation(s) resulted in a non-finite number: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+Stacktrace:
+  [1] check_isfinite(x::Vector{Float64})
+    @ LeastSquaresOptim ~/.julia/packages/LeastSquaresOptim/1nHwu/src/utils/utils.jl:46
+  [2] optimize!(anls::LeastSquaresProblemAllocated{Vector{Float64}, Vector{Float64}, var"#to_optimize!#40"{Vector{Float32}, Vector{Vector{Float64}}, Int64, Int64, Int64}, Matrix{Float64}, var"#jacobian!#39"{Vector{Vector{Float64}}, Int64, Int64, Int64}, LeastSquaresOptim.AllocatedLevenbergMarquardt{Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}, LeastSquaresOptim.DenseQRAllocatedSolver{Matrix{Float64}, Vector{Float64}}}; x_tol::Float64, f_tol::Float64, g_tol::Float64, iterations::Int64, Δ::Float64, store_trace::Bool, show_trace::Bool, show_every::Int64, lower::Vector{Float64}, upper::Vector{Float64})
+    @ LeastSquaresOptim ~/.julia/packages/LeastSquaresOptim/1nHwu/src/optimizer/levenberg_marquardt.jl:79
+  [3] optimize!
+    @ ~/.julia/packages/LeastSquaresOptim/1nHwu/src/optimizer/levenberg_marquardt.jl:44 [inlined]
+  [4] #optimize!#11
+    @ ~/.julia/packages/LeastSquaresOptim/1nHwu/src/types.jl:149 [inlined]
+  [5] fit_stars_prf_flat_bkg(supersampled_prf::Matrix{Float64}, cut::Matrix{Float32}, stars_px_x::Vector{Float64}, stars_px_y::Vector{Float64}, start_pars::Vector{Float64})
+    @ Main ~/work/obs/Isolated/main.jl:375
+  [6] find_background_prf(flux_cut::Matrix{Float32}, supersampled_prf::Matrix{Float64}, stars_x::Vector{Float64}, stars_y::Vector{Float64})
+    @ Main ~/work/obs/Isolated/main.jl:608
+  [7] load_light_curve(star_name::String31, sector::Int64, cut_width::Int64, cut_height::Int64; Δm_R::Int64, rewrite_file::Bool)
+    @ Main ~/work/obs/Isolated/main.jl:747
+  [8] load_light_curve
+    @ ~/work/obs/Isolated/main.jl:729 [inlined]
+  [9] load_light_curve
+    @ ~/work/obs/Isolated/main.jl:727 [inlined]
+ [10] (::var"#98#99"{Bool, @Kwargs{day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String31}, Int64})(log_io::IOStream)
+    @ Main ~/work/obs/Isolated/main.jl:1075
+ [11] open(::var"#98#99"{Bool, @Kwargs{day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String31}, Int64}, ::String, ::Vararg{String}; kwargs::@Kwargs{})
+    @ Base ./io.jl:410
+ [12] open
+    @ ./io.jl:407 [inlined]
+ [13] #get_all_data#97
+    @ ~/work/obs/Isolated/main.jl:1060 [inlined]
+ [14] top-level scope
+    @ ~/work/obs/Isolated/getdata.jl:6
+ [15] eval
+    @ ./boot.jl:430 [inlined]
+ [16] include_string(mapexpr::typeof(REPL.softscope), mod::Module, code::String, filename::String)
+    @ Base ./loading.jl:2734
+ [17] invokelatest(::Any, ::Any, ::Vararg{Any}; kwargs::@Kwargs{})
+    @ Base ./essentials.jl:1055
+ [18] invokelatest(::Any, ::Any, ::Vararg{Any})
+    @ Base ./essentials.jl:1052
+ [19] inlineeval(m::Module, code::String, code_line::Int64, code_column::Int64, file::String; softscope::Bool)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:271
+ [20] (::VSCodeServer.var"#69#74"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:181
+ [21] withpath(f::VSCodeServer.var"#69#74"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, path::String)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/repl.jl:276
+ [22] (::VSCodeServer.var"#68#73"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:179
+ [23] hideprompt(f::VSCodeServer.var"#68#73"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/repl.jl:38
+ [24] #67
+    @ ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:150 [inlined]
+ [25] with_logstate(f::VSCodeServer.var"#67#72"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:522
+ [26] with_logger
+    @ ./logging/logging.jl:632 [inlined]
+ [27] (::VSCodeServer.var"#66#71"{VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:263
+ [28] #invokelatest#2
+    @ ./essentials.jl:1055 [inlined]
+ [29] invokelatest(::Any)
+    @ Base ./essentials.jl:1052
+ [30] (::VSCodeServer.var"#64#65")()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.146.2/scripts/packages/VSCodeServer/src/eval.jl:34Processing sector 10: light curve loaded, plot saved
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 33: light curve loaded, plot saved
+Processing sector 37: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+CD-77 353 resolved in TESS sectors10, 11, 12, 30, 37, 38, 39, 64, 65, 66
+Processing sector 10: light curve loaded, plot saved
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 30: light curve loaded, plot saved
+Processing sector 37: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+HD 82879 resolved in TESS sectors11, 12, 37, 38, 39, 64, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 37: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+HD 84075 resolved in TESS sectors11, 12, 37, 38, 39, 64, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 37: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+HD 86356 resolved in TESS sectors11, 12, 37, 38, 39, 64, 65, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 37: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+EM Cha resolved in TESS sectors11, 12, 13, 37, 38, 39, 64, 65, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 13: light curve loaded, plot saved
+Processing sector 37: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+HD 97300 resolved in TESS sectors12, 39, 64, 65
+Processing sector 12: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+DI Cha resolved in TESS sectors11, 12, 38, 39, 64, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+Ass Cha T 2-21 resolved in TESS sectors11, 12, 38, 39, 64, 65, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+CS Cha resolved in TESS sectors11, 12, 38, 39, 64, 65, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+Glass C resolved in TESS sectors11, 12, 38, 39, 64, 65, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+CU Cha resolved in TESS sectors11, 12, 38, 39, 64, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+HD 86588 resolved in TESS sectors11, 12, 38, 39, 64, 65, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+RX J1159.7-7601 resolved in TESS sectors11, 12, 38, 39, 64, 65
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+Ass Cha T 2-54 resolved in TESS sectors11, 12, 39, 64, 65, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+CPD-77 660 resolved in TESS sectors11, 12, 39, 64, 65
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+CV Cha resolved in TESS sectors12, 39, 64, 65, 66
+Processing sector 12: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+RX J1140.3-8321 resolved in TESS sectors11, 13, 38, 65, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 13: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+RX J1209.8-7344 resolved in TESS sectors11, 12, 38, 39, 64, 65
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+CD-74 673 resolved in TESS sectors11, 12, 38, 39
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+
+CD-74 712 resolved in TESS sectors11, 12, 38, 39
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+
+CD-74 681 resolved in TESS sectors11, 12, 38, 39, 65
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+HD 109138 resolved in TESS sectors11, 12, 38, 39
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+
+HD 107722 resolved in TESS sectors11, 12, 38, 39, 65, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+CD-78 502 resolved in TESS sectors11, 12, 38, 39, 65, 66
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+Processing sector 66: light curve loaded, plot saved
+
+MP Mus resolved in TESS sectors11, 12, 38, 65
+Processing sector 11: light curve loaded, plot saved
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+V1424 Cen resolved in TESS sectors11, 38, 65
+Processing sector 11: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+CD-51 9596 resolved in TESS sectors12, 39
+Processing sector 12: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+
+CD-40 9190 resolved in TESS sectors11, 38, 65
+Processing sector 11: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+HD 132264 resolved in TESS sectors11, 38, 65
+Processing sector 11: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+CD-43 10250 resolved in TESS sectors12, 38, 65
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+CD-39 10162 resolved in TESS sectors12, 38, 65
+Processing sector 12: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+HD 142527 resolved in TESS sectors12, 65
+Processing sector 12: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+HD 143677 resolved in TESS sectors12, 39, 65
+Processing sector 12: light curve loaded, plot saved
+Processing sector 39: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+LW Lup resolved in TESS sectors11, 38, 65
+Processing sector 11: light curve loaded, plot saved
+Processing sector 38: light curve loaded, plot saved
+Processing sector 65: light curve loaded, plot saved
+
+V1249 Cen resolved in TESS sectors10, 37, 64
+Processing sector 10: light curve loaded, plot saved
+Processing sector 37: light curve loaded, plot saved
+Processing sector 64: light curve loaded, plot saved
+
+SV Cep resolved in TESS sectors17, 18, 19, 24, 25, 52, 57, 59
+Processing sector 17: light curve loaded, plot saved
+Processing sector 18: light curve loaded, plot saved
+Processing sector 19: light curve loaded, plot saved
+Processing sector 24: light curve loaded, plot saved
+Processing sector 25: light curve loaded, plot saved
+Processing sector 52: light curve loaded, plot saved
+Processing sector 57: light curve loaded, plot saved
+Processing sector 59: light curve loaded, plot saved
+
+FU Ori resolved in TESS sectors6
+Processing sector 6: light curve loaded, plot saved
+
+R CrA resolved in TESS sectors13, 67
+Processing sector 13: light curve loaded, plot saved
+Processing sector 67: light curve loaded, plot saved
+
