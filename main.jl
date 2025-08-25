@@ -609,7 +609,12 @@ function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
     PRFs = [abs.(res.minimizer[i_star])*get_prf_cut(supersampled_prf, cut_width, cut_height, stars_x[i_star], stars_y[i_star])  for i_star = 1:n_stars]
     empty_cut = sum([abs.(res.minimizer[i_star])*fill(get_n_min_median_background(PRFs[i_star], cut_width*cut_height ÷ 4), (cut_width, cut_height)) for i_star = 1:n_stars])
     PRF_cut = sum(PRFs)
-    quartile = sort(vec(PRF_cut - empty_cut))[cut_width*cut_height ÷ 4]
+    median_prf = sort(vec(PRF_cut - empty_cut))[cut_width*cut_height ÷ 2]
+    median_prf_px = findall(x -> (median_prf - x) > -1e-8, PRF_cut - empty_cut)
+
+    median_cut = median(flux_cut[median_prf_px])
+    final_indeces = findall(x -> (flux_cut[x] - median_cut) < -1e-8, median_prf_px)
+
     # println(PRF_cut)
     # format = Printf.Format("%8.2f "^15 * "\n")
     # for i = 1:cut_width
@@ -619,7 +624,7 @@ function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
     # for i = 1:cut_width
     #     Printf.format(stdout, format, empty_cut[:, cut_height - i +1]...)
     # end
-    return findall(x -> (quartile - x) > -1e-8, PRF_cut - empty_cut)
+    return median_prf_px[final_indeces]
 end
 
 function fit_flat_background(flux_cut, bkg_positions)
@@ -724,6 +729,19 @@ function load_gaia_stars_in_view_data(star_name, fits, Δm_R)
     end
 end
 
+function aperture_prf_correction(aperture, star_px_x, star_px_y, supersampled_prf, cut_size)
+    prf_cut = get_prf_cut(supersampled_prf, cut_size, cut_size, star_px_x, star_px_y)
+    prf_flux = sum(prf_cut)
+    ap_flux = photometry(aperture, prf_cut)[3]
+    println("$ap_flux $prf_flux $(prf_flux/ap_flux)")
+    return prf_flux/ap_flux
+end
+
+function calc_aperture_prf_correction(aperture_radius :: Real, star_px_x, star_px_y, supersampled_prf, cut_size)
+    aperture = CircularAperture(star_px_x, star_px_y, aperture_radius)
+    aperture_prf_correction(aperture, star_px_x, star_px_y, supersampled_prf, cut_size)
+end
+
 load_light_curve(star_name, sector, cut_size; kwargs...) = load_light_curve(star_name, sector, cut_size, cut_size; kwargs...)
 
 function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, rewrite_file = false)
@@ -741,6 +759,8 @@ function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, r
 
     light_curve_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv"
 
+    aperture_radius = 2.5
+    
     if !isfile(light_curve_file) | rewrite_file
         mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
         prf = get_tesscut_prf_supersampled(fits)
@@ -749,7 +769,8 @@ function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, r
         # println(gaia_stars_data.px_y)
         # println(bkg_pixels)
         cuts = [flux_cuts[:,:,i_cut] for i_cut = 1:n_cuts]
-        phot_flux = calc_aperture_photometry_bkg_pixels.(cuts, Ref(bkg_pixels), star_px..., 2.5)
+        aperture_prf_correction = calc_aperture_prf_correction(aperture_radius, star_px..., prf, cut_height)
+        phot_flux = aperture_prf_correction * calc_aperture_photometry_bkg_pixels.(cuts, Ref(bkg_pixels), star_px..., aperture_radius)
 
         lc_df = DataFrame(:MJD => mjds, :FLUX => phot_flux, :MAG => calc_tess_magniude.(abs.(phot_flux)))
         CSV.write("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv", lc_df)
@@ -792,6 +813,7 @@ function find_tess_sectors(star_name, max_sector)
 end
 
 function plot_cuts(star_name, sector, cut_width, cut_height)
+    cut_size = cut_height
     fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
     reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
     reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
