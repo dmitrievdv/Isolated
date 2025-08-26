@@ -235,6 +235,10 @@ function calc_tess_magniude(flux)
     return -2.5*log10(flux) + 20.44
 end
 
+function calc_tess_flux_from_mag(mag)
+    return 10^(0.4*(20.44 - mag))
+end
+
 function elliptic_powexp_PSF(width, height, center_x, center_y, x_σ, y_σ, power, max_int; super_samp = 10)
     model = zeros(width, height)
     d_ss = 1/super_samp

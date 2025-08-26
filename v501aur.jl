@@ -8,7 +8,7 @@ jd_box = 0.1; σ_tol = 5; n_out = 20
 
 sectors = find_tess_sectors(star_name, 72)
 
-df_lcs = Dict([sector => load_light_curve(star_name, sector, cut_size) for sector in sectors])
+df_lcs = Dict([sector => load_light_curve(star_name, sector, cut_size, rewrite_file = true) for sector in sectors])
 
 df_lc_all = foldl(vcat, [df_lcs[sector] for sector in sort(sectors)])
 
@@ -23,7 +23,7 @@ pgram = lombscargle(plan)
 freq, power = freqpower(pgram)
 periods = findmaxperiod(pgram, [0.01,100], 0.85)
 
-mean_mag = mean(cleaned_mags_all)
+mean_mag = calc_tess_magniude(mean(calc_tess_flux_from_mag.(cleaned_mags_all)))
 
 jds_by_sector = Dict([sector => get_true_jd.(df_lc.MJD) for (sector, df_lc) in df_lcs])
 mags_by_sector = Dict([sector => df_lc.MAG for (sector, df_lc) in df_lcs])
@@ -32,6 +32,8 @@ transits_mags = Vector{Float64}[]
 transits_sectors = Int[]
 left_fits = []
 right_fits = []
+left_luminosity_relation = Float64[]
+right_luminosity_relation = Float64[]
 
 orbital_period = 68.8333
 
@@ -44,6 +46,8 @@ in_left_partial_transit(ϕ) = in_partial_transit(ϕ) & ϕ ≤ 0.7
 in_right_partial_transit(ϕ) = in_partial_transit(ϕ) & ϕ ≥ 0.7
 in_left_fit_window(ϕ) = in_transit_window(ϕ) & (ϕ ≤ 0.68) & !in_partial_transit(ϕ)
 in_right_fit_window(ϕ) = in_transit_window(ϕ) & (ϕ ≥ 0.72) & !in_partial_transit(ϕ)
+
+calc_luminosity_relation(Δm, mean_mag, transit_mag) = (10^(0.4*Δm) - 1)*10^(0.4*(mean_mag - transit_mag))
 
 for sector in sectors
     jds, mags = delete_nans(get_true_jd.(df_lcs[sector].MJD), df_lcs[sector].MAG)
@@ -74,7 +78,7 @@ for sector in sectors
     full_transit_phases = phases[full_transit_indices]
     full_transit_mags = cleaned_mags[full_transit_indices]
 
-    mean_transit_mag = mean(transit_mags)
+    mean_transit_mag = calc_tess_magniude(mean(calc_tess_flux_from_mag.(full_transit_mags)))
 
     poly = fit(phases[indices_for_fit], cleaned_mags[indices_for_fit], 4)
     start_fit_pars = [coeffs(poly); 0.01]
@@ -91,7 +95,10 @@ for sector in sectors
                                 p[2]*right_fit_phases .+ p[1]) .+ p[6] .* right_full_mask)                         
     right_fit_pars = optimize(right_fitting_function, start_fit_pars, LevenbergMarquardt()).minimizer 
 
-    println(left_fit_pars[end], " ", right_fit_pars[end])    
+
+    push!(left_luminosity_relation, calc_luminosity_relation(left_fit_pars[end], mean_mag, mean_transit_mag))
+    push!(right_luminosity_relation, calc_luminosity_relation(right_fit_pars[end], mean_mag, mean_transit_mag))
+    println(left_luminosity_relation[end], " ", right_luminosity_relation[end])    
     push!(left_fits, (left_fit_phases, (-left_fitting_function(left_fit_pars) .+ left_fit_mags)))
     push!(right_fits, (right_fit_phases, (-right_fitting_function(right_fit_pars) .+ right_fit_mags)))
     push!(transits_mags, cleaned_mags[not_partial_transit_indices])
