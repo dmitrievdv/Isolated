@@ -832,6 +832,8 @@ function plot_cuts(star_name, sector, cut_width, cut_height)
     fig = Figure()
 
     ax_cut = Axis(fig[1:2,1:2], title = star_name, aspect = DataAspect())
+    xlims!(ax_cut, (0.5, cut_width + 0.5))
+    ylims!(ax_cut, (0.5, cut_height + 0.5))
     ax_arrows = Axis(fig[2,0], aspect = DataAspect(), title = @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
     ax_light_curve = Axis(fig[3,0:3], yreversed = true, ylabel = "TESS magnitude", xlabel = "MJD")
 
