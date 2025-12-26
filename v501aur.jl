@@ -8,7 +8,7 @@ cut_size = 30
 
 jd_box = 0.1; σ_tol = 5; n_out = 20
 
-sectors = find_tess_sectors(star_name, 72)
+sectors = find_tess_sectors(star_name, tess_max_sectors)
 
 df_lcs = Dict([sector => load_light_curve(star_name, sector, cut_size, rewrite_file = false) for sector in sectors])
 

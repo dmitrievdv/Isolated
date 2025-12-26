@@ -74,7 +74,7 @@ cut_size = 15
 for star_name in star_names
     print(star_name, " ")
     sectors = try
-        find_tess_sectors(star_name, 72)
+        find_tess_sectors(star_name, tess_max_sectors)
     catch e
         print("\n")
         continue

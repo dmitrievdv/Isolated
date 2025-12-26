@@ -22,6 +22,8 @@ using LombScargle
 
 star_directory = "stars_julia"
 
+tess_max_sectors = 96
+
 # include("lightcurves.jl")
 include("databases.jl")
 include("tess-queries.jl")
@@ -1089,7 +1091,7 @@ function get_all_data(star_names, cut_size; rewrite_files = false, save_lc_kwarg
         for star_name in star_names[1:end]
             println("Star $star_name")
             sectors = try 
-                find_tess_sectors(star_name, 72)
+                find_tess_sectors(star_name, tess_max_sectors)
             catch e
                 showerror(log_io, e, catch_backtrace())
                 Int[]
@@ -1132,7 +1134,7 @@ end
 #     println(star_name)
 # # star_name = "FU Ori"
     
-#     sectors = find_tess_sectors(star_name, 72)
+#     sectors = find_tess_sectors(star_name, tess_max_sectors)
 #     for sector in sectors
 #         load_light_curve(star_name, sector, cut_size; rewrite_file = false)
 #         save_lc_figure(star_name, sector, cut_size; day_step = 1, jd_box = 0.1, σ_tol = 10)
