@@ -4,7 +4,7 @@ using HTTP
 using ZipArchives
 using Mmap
 # using BufferedStreams
-using JSON3
+# using JSON3
 using CSV
 using Photometry
 using Makie
@@ -16,10 +16,9 @@ using LinearAlgebra
 using Statistics
 using LeastSquaresOptim
 using ProgressBars
-using Dates
 using Dierckx
 using LombScargle
-using Logging
+# using Logging
 
 star_directory = "stars_julia"
 
