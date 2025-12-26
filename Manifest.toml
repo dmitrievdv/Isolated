@@ -1215,6 +1215,7 @@ version = "3.1.4+0"
 [[deps.JuMP]]
 deps = ["LinearAlgebra", "MacroTools", "MathOptInterface", "MutableArithmetics", "OrderedCollections", "PrecompileTools", "Printf", "SparseArrays"]
 git-tree-sha1 = "b76f23c45d75e27e3e9cbd2ee68d8e39491052d0"
+git-tree-sha1 = "b76f23c45d75e27e3e9cbd2ee68d8e39491052d0"
 uuid = "4076af6c-e467-56ae-b986-b466b2749572"
 version = "1.29.3"
 
@@ -1523,6 +1524,7 @@ version = "0.3.4"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
+version = "2025.5.20"
 version = "2025.5.20"
 
 [[deps.MutableArithmetics]]

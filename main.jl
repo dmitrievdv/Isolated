@@ -232,7 +232,7 @@ function get_distance(α_1, δ_1, α_2, δ_2)
 end
 
 function calc_tess_magniude(flux)
-    return -2.5*log10(flux) + 20.44
+    return -2.5*log10(abs(flux)) + 20.44
 end
 
 function calc_tess_flux_from_mag(mag)
