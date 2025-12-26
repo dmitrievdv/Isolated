@@ -232,7 +232,7 @@ function get_distance(α_1, δ_1, α_2, δ_2)
     return acos(xyz_1 ⋅ xyz_2)/180*π
 end
 
-function calc_tess_magniude(flux)
+function calc_tess_magnitude(flux)
     return -2.5*log10(abs(flux)) + 20.44
 end
 
@@ -764,7 +764,7 @@ function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, r
 
     light_curve_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv"
 
-    aperture_radius = 2.5
+    aperture_radius = 5
     
     if !isfile(light_curve_file) | rewrite_file
         mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
@@ -777,7 +777,7 @@ function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, r
         aperture_prf_correction = calc_aperture_prf_correction(aperture_radius, star_px..., prf, cut_height)
         phot_flux = aperture_prf_correction * calc_aperture_photometry_bkg_pixels.(cuts, Ref(bkg_pixels), star_px..., aperture_radius)
 
-        lc_df = DataFrame(:MJD => mjds, :FLUX => phot_flux, :MAG => calc_tess_magniude.(abs.(phot_flux)))
+        lc_df = DataFrame(:MJD => mjds, :FLUX => phot_flux, :MAG => calc_tess_magnitude.(abs.(phot_flux)))
         CSV.write("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv", lc_df)
         lc_df
     else
@@ -940,9 +940,9 @@ function plot_cuts(star_name, sector, cut_width, cut_height)
     slider_time = @lift mjds[$i_cut]
     slider_flux = @lift phot_flux[$i_cut]
 
-    lines!(ax_light_curve, mjds, calc_tess_magniude.(phot_flux))
+    lines!(ax_light_curve, mjds, calc_tess_magnitude.(phot_flux))
     vlines!(ax_light_curve, slider_time; color = :red)
-    scatter!(ax_light_curve, @lift Point2f(mjds[$i_cut], calc_tess_magniude(phot_flux[$i_cut])); color = :red)
+    scatter!(ax_light_curve, @lift Point2f(mjds[$i_cut], calc_tess_magnitude(phot_flux[$i_cut])); color = :red)
 
 
     # Colorbar(fig[1,2], sc)
@@ -1324,8 +1324,8 @@ end
 # begin 
 #     fig_prflc = Figure()
 #     ax_prflc = Axis(fig_prflc[1,1], yreversed = true)
-#     lines!(ax_prflc, mjds, calc_tess_magniude.(phot_flux), label = "Aperture")
-#     lines!(ax_prflc, mjds, calc_tess_magniude.(abs.(prf_lc)), label = "TESS PRF")
+#     lines!(ax_prflc, mjds, calc_tess_magnitude.(phot_flux), label = "Aperture")
+#     lines!(ax_prflc, mjds, calc_tess_magnitude.(abs.(prf_lc)), label = "TESS PRF")
 #     Legend(fig_prflc[1,1], ax_prflc, tellwidth = false, valign = :top, halign = :right)
 #     fig_prflc
 # end
@@ -1336,10 +1336,10 @@ end
 #     xlims!(ax_app_err, (9,12))
 #     ax_lc_err = Axis(fig_app_err[1,3], yreversed = true)
 #     ylims!(ax_lc_err, (12,9))
-#     sc_app_err = scatter!(ax_app_err, calc_tess_magniude.(abs.(prf_lc)), calc_tess_magniude.(abs.(prf_lc)) - calc_tess_magniude.(phot_flux), color = mjds)
+#     sc_app_err = scatter!(ax_app_err, calc_tess_magnitude.(abs.(prf_lc)), calc_tess_magnitude.(abs.(prf_lc)) - calc_tess_magnitude.(phot_flux), color = mjds)
 #     Colorbar(fig_app_err[1, 2], sc_app_err)
-#     lines!(ax_lc_err, mjds, calc_tess_magniude.(phot_flux), label = "Aperture")
-#     lines!(ax_lc_err, mjds, calc_tess_magniude.(abs.(prf_lc)), label = "TESS PRF")
+#     lines!(ax_lc_err, mjds, calc_tess_magnitude.(phot_flux), label = "Aperture")
+#     lines!(ax_lc_err, mjds, calc_tess_magnitude.(abs.(prf_lc)), label = "TESS PRF")
 #     fig_app_err
 # end
 
