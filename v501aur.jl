@@ -98,7 +98,7 @@ for sector in sectors
 
     push!(left_luminosity_relation, calc_luminosity_relation(left_fit_pars[end], mean_mag, mean_transit_mag))
     push!(right_luminosity_relation, calc_luminosity_relation(right_fit_pars[end], mean_mag, mean_transit_mag))
-    println(left_luminosity_relation[end], " ", right_luminosity_relation[end])    
+    println(sector, " ", left_luminosity_relation[end], " ", right_luminosity_relation[end])    
     push!(left_fits, (left_fit_phases, (-left_fitting_function(left_fit_pars) .+ left_fit_mags)))
     push!(right_fits, (right_fit_phases, (-right_fitting_function(right_fit_pars) .+ right_fit_mags)))
     push!(transits_mags, cleaned_mags[not_partial_transit_indices])
