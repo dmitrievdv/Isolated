@@ -749,7 +749,7 @@ end
 
 load_light_curve(star_name, sector, cut_size; kwargs...) = load_light_curve(star_name, sector, cut_size, cut_size; kwargs...)
 
-function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, rewrite_file = false)
+function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, rewrite_file = false, aperture_radius=2.5)
     fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
     flux_cuts = read(fits[2], "FLUX")
     n_cuts= size(flux_cuts)[3]
@@ -764,7 +764,7 @@ function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, r
 
     light_curve_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv"
 
-    aperture_radius = 5
+    # aperture_radius = 5
     
     if !isfile(light_curve_file) | rewrite_file
         mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
@@ -817,7 +817,7 @@ function find_tess_sectors(star_name, max_sector)
     return sectors
 end
 
-function plot_cuts(star_name, sector, cut_width, cut_height)
+function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5)
     cut_size = cut_height
     fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
     reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
@@ -832,7 +832,7 @@ function plot_cuts(star_name, sector, cut_width, cut_height)
 
     fig = Figure()
 
-    ax_cut = Axis(fig[1:2,1:2], title = star_name, aspect = DataAspect())
+    ax_cut = Axis(fig[1:2,1:2], title = "$star_name, sector $sector", aspect = DataAspect())
     xlims!(ax_cut, (0.5, cut_width + 0.5))
     ylims!(ax_cut, (0.5, cut_height + 0.5))
     ax_arrows = Axis(fig[2,0], aspect = DataAspect(), title = @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
@@ -845,7 +845,7 @@ function plot_cuts(star_name, sector, cut_width, cut_height)
     bkg_check= Checkbox(fig[6,1], checked = false, tellwidth = false, halign = :right)
     bkg_check_label = Label(fig[6,2], "Background pixels", halign = :left, tellwidth = false)
 
-    df_lc = load_light_curve(star_name, sector, cut_size)
+    df_lc = load_light_curve(star_name, sector, cut_size; aperture_radius)
     phot_flux = df_lc.FLUX; mjds = df_lc.MJD
     df_star = load_star_gaia_data(star_name)
     frame_stars_df = load_gaia_stars_in_view_data(star_name, fits, 5)
@@ -1030,7 +1030,7 @@ function get_true_jd(mjd)
 end
 
 function save_lc_figure(star_name, sector, cut_size; day_step = 2, jd_box = 0.3, σ_tol = 5, n_out = 10)
-    df_lc = load_light_curve(star_name, sector, cut_size; rewrite_file = true)
+    df_lc = load_light_curve(star_name, sector, cut_size; rewrite_file = false)
     nospace_star_name = get_nospace_star_name(star_name)
 
     JDs = get_true_jd.(df_lc.MJD)
@@ -1086,7 +1086,7 @@ function find_ACF(jds, fluxs; oversample = 1.5)
     return lags, acf / flux_dispersion
 end
 
-function get_all_data(star_names, cut_size; rewrite_files = false, save_lc_kwargs...)
+function get_all_data(star_names, cut_size; rewrite_files = false, aperture_radius = 5, save_lc_kwargs...)
     open("get_all_data.log", "w") do log_io
         for star_name in star_names[1:end]
             println("Star $star_name")
@@ -1103,7 +1103,7 @@ function get_all_data(star_names, cut_size; rewrite_files = false, save_lc_kwarg
             for sector in sectors
                 print(log_io, "Processing sector $sector: ")
                 try
-                    load_light_curve(star_name, sector, cut_size; rewrite_file = rewrite_files)
+                    load_light_curve(star_name, sector, cut_size; rewrite_file = rewrite_files, aperture_radius)
                     print(log_io, "light curve loaded")
                     save_lc_figure(star_name, sector, cut_size; save_lc_kwargs...)
                     print(log_io, ", plot saved\n")
