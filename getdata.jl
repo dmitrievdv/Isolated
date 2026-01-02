@@ -5,7 +5,8 @@ include("main.jl")
 star_name = "CD-30 12558"
 cut_size = 30
 
-get_all_data([star_name], cut_size; rewrite_files = true, aperture_radius = 3, Δm_R = 5, day_step = 1, jd_box = 0.1, σ_tol = 5, n_out = 20)
+get_all_data([star_name], cut_size; rewrite_files = false, rewrite_gaia_stars_file = false,
+     aperture_radius = 3, Δm_R = 5, day_step = 1, jd_box = 0.1, σ_tol = 5, n_out = 20)
 
 sectors = find_tess_sectors(star_name, tess_max_sectors)
 

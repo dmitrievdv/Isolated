@@ -693,7 +693,7 @@ function load_tess_cutouts(star_name, cut_width, cut_height)
     return Dict([key => value for (key, value) in zip(sectors, all_fits)])
 end
 
-function load_gaia_stars_in_view_data(star_name, fits, Δm_R)
+function load_gaia_stars_in_view_data(star_name, fits, Δm_R = 5; rewrite_file = false)
     gaia_data = load_star_gaia_data(star_name)
     star_R = gaia_data.phot_rp_mean_mag
     corners = get_tesscut_corners(fits)
@@ -701,9 +701,9 @@ function load_gaia_stars_in_view_data(star_name, fits, Δm_R)
     sector = read_key(fits[1], "SECTOR")[1]
     # println(sector)
     gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/gaia_stars_in_view_sector_$sector.csv"
-    if !isfile(gaia_stars_file) 
+    gaia_stars_df = if (!isfile(gaia_stars_file)) | rewrite_file
         mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
-        data = get_gaia_stars_in_poly(corners, star_R + Δm_R)
+        data = get_gaia_stars_in_poly(corners, star_R + 20)
         reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
         reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
         conversion_matrix_px_to_radec = [read_key(fits[2], "11PC4")[1] read_key(fits[2], "12PC4")[1]
@@ -732,6 +732,8 @@ function load_gaia_stars_in_view_data(star_name, fits, Δm_R)
     else
         CSV.read(gaia_stars_file, DataFrame)
     end
+
+    return gaia_stars_df[gaia_stars_df.phot_rp_mean_mag .< (gaia_data.phot_rp_mean_mag + Δm_R), :]
 end
 
 function aperture_prf_correction(aperture, star_px_x, star_px_y, supersampled_prf, cut_size)
@@ -749,14 +751,14 @@ end
 
 load_light_curve(star_name, sector, cut_size; kwargs...) = load_light_curve(star_name, sector, cut_size, cut_size; kwargs...)
 
-function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, rewrite_file = false, aperture_radius=3)
+function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, rewrite_file = false, rewrite_gaia_stars_file = false, aperture_radius=3)
     fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
     flux_cuts = read(fits[2], "FLUX")
     n_cuts= size(flux_cuts)[3]
 
     mjds = read(fits[2], "TIME")
 
-    gaia_stars_data = load_gaia_stars_in_view_data(star_name, fits, Δm_R)
+    gaia_stars_data = load_gaia_stars_in_view_data(star_name, fits, Δm_R, rewrite_file = rewrite_gaia_stars_file)
     gaia_data = load_star_gaia_data(star_name)
 
     star_index = findfirst(s -> s == gaia_data.source_id, gaia_stars_data.source_id)

@@ -1,10 +1,174 @@
-Resolved in TESS sectors 16, 17, 24, 76, 78, 83, 84, 85
-Processing sector 16: light curve loaded, plot saved
-Processing sector 17: light curve loaded, plot saved
-Processing sector 24: light curve loaded, plot saved
-Processing sector 76: light curve loaded, plot saved
-Processing sector 78: light curve loaded, plot saved
-Processing sector 83: light curve loaded, plot saved
-Processing sector 84: light curve loaded, plot saved
-Processing sector 85: light curve loaded, plot saved
+Resolved in TESS sectors 12, 38, 65, 91
+Processing sector 12: light curve loadedMethodError: no method matching save_lc_figure(::String, ::Int64, ::Int64; rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64)
+This method does not support all of the given keyword arguments (and may not support any).
 
+Closest candidates are:
+  save_lc_figure(::Any, ::Any, ::Any; Δm_R, aperture_radius, day_step, jd_box, σ_tol, n_out) got unsupported keyword argument "rewrite_gaia_stars_file"
+   @ Main ~/work/obs/Isolated/main.jl:1034
+
+Stacktrace:
+  [1] kwerr(::@NamedTuple{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, ::Function, ::String, ::Int64, ::Int64)
+    @ Base ./error.jl:175
+  [2] (::var"#113#114"{Bool, Int64, Int64, @Kwargs{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String}, Int64})(log_io::IOStream)
+    @ Main ~/work/obs/Isolated/main.jl:1110
+  [3] open(::var"#113#114"{Bool, Int64, Int64, @Kwargs{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String}, Int64}, ::String, ::Vararg{String}; kwargs::@Kwargs{})
+    @ Base ./io.jl:410
+  [4] open
+    @ ./io.jl:407 [inlined]
+  [5] #get_all_data#111
+    @ ~/work/obs/Isolated/main.jl:1092 [inlined]
+  [6] top-level scope
+    @ ~/work/obs/Isolated/getdata.jl:8
+  [7] eval(m::Module, e::Any)
+    @ Core ./boot.jl:489
+  [8] include_string(mapexpr::typeof(REPL.softscope), mod::Module, code::String, filename::String)
+    @ Base ./loading.jl:2867
+  [9] inlineeval(m::Module, code::String, code_line::Int64, code_column::Int64, file::String; softscope::Bool)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:271
+ [10] (::VSCodeServer.var"#repl_runcode_request##6#repl_runcode_request##7"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:181
+ [11] withpath(f::VSCodeServer.var"#repl_runcode_request##6#repl_runcode_request##7"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, path::String)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/repl.jl:278
+ [12] (::VSCodeServer.var"#repl_runcode_request##4#repl_runcode_request##5"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:179
+ [13] hideprompt(f::VSCodeServer.var"#repl_runcode_request##4#repl_runcode_request##5"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/repl.jl:38
+ [14] #repl_runcode_request##2
+    @ ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:150 [inlined]
+ [15] with_logstate(f::VSCodeServer.var"#repl_runcode_request##2#repl_runcode_request##3"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:540
+ [16] with_logger
+    @ ./logging/logging.jl:651 [inlined]
+ [17] (::VSCodeServer.var"#repl_runcode_request##0#repl_runcode_request##1"{VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:263
+ [18] (::VSCodeServer.var"#start_eval_backend##0#start_eval_backend##1")()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:34Processing sector 38: light curve loadedMethodError: no method matching save_lc_figure(::String, ::Int64, ::Int64; rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64)
+This method does not support all of the given keyword arguments (and may not support any).
+
+Closest candidates are:
+  save_lc_figure(::Any, ::Any, ::Any; Δm_R, aperture_radius, day_step, jd_box, σ_tol, n_out) got unsupported keyword argument "rewrite_gaia_stars_file"
+   @ Main ~/work/obs/Isolated/main.jl:1034
+
+Stacktrace:
+  [1] kwerr(::@NamedTuple{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, ::Function, ::String, ::Int64, ::Int64)
+    @ Base ./error.jl:175
+  [2] (::var"#113#114"{Bool, Int64, Int64, @Kwargs{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String}, Int64})(log_io::IOStream)
+    @ Main ~/work/obs/Isolated/main.jl:1110
+  [3] open(::var"#113#114"{Bool, Int64, Int64, @Kwargs{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String}, Int64}, ::String, ::Vararg{String}; kwargs::@Kwargs{})
+    @ Base ./io.jl:410
+  [4] open
+    @ ./io.jl:407 [inlined]
+  [5] #get_all_data#111
+    @ ~/work/obs/Isolated/main.jl:1092 [inlined]
+  [6] top-level scope
+    @ ~/work/obs/Isolated/getdata.jl:8
+  [7] eval(m::Module, e::Any)
+    @ Core ./boot.jl:489
+  [8] include_string(mapexpr::typeof(REPL.softscope), mod::Module, code::String, filename::String)
+    @ Base ./loading.jl:2867
+  [9] inlineeval(m::Module, code::String, code_line::Int64, code_column::Int64, file::String; softscope::Bool)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:271
+ [10] (::VSCodeServer.var"#repl_runcode_request##6#repl_runcode_request##7"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:181
+ [11] withpath(f::VSCodeServer.var"#repl_runcode_request##6#repl_runcode_request##7"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, path::String)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/repl.jl:278
+ [12] (::VSCodeServer.var"#repl_runcode_request##4#repl_runcode_request##5"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:179
+ [13] hideprompt(f::VSCodeServer.var"#repl_runcode_request##4#repl_runcode_request##5"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/repl.jl:38
+ [14] #repl_runcode_request##2
+    @ ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:150 [inlined]
+ [15] with_logstate(f::VSCodeServer.var"#repl_runcode_request##2#repl_runcode_request##3"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:540
+ [16] with_logger
+    @ ./logging/logging.jl:651 [inlined]
+ [17] (::VSCodeServer.var"#repl_runcode_request##0#repl_runcode_request##1"{VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:263
+ [18] (::VSCodeServer.var"#start_eval_backend##0#start_eval_backend##1")()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:34Processing sector 65: light curve loadedMethodError: no method matching save_lc_figure(::String, ::Int64, ::Int64; rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64)
+This method does not support all of the given keyword arguments (and may not support any).
+
+Closest candidates are:
+  save_lc_figure(::Any, ::Any, ::Any; Δm_R, aperture_radius, day_step, jd_box, σ_tol, n_out) got unsupported keyword argument "rewrite_gaia_stars_file"
+   @ Main ~/work/obs/Isolated/main.jl:1034
+
+Stacktrace:
+  [1] kwerr(::@NamedTuple{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, ::Function, ::String, ::Int64, ::Int64)
+    @ Base ./error.jl:175
+  [2] (::var"#113#114"{Bool, Int64, Int64, @Kwargs{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String}, Int64})(log_io::IOStream)
+    @ Main ~/work/obs/Isolated/main.jl:1110
+  [3] open(::var"#113#114"{Bool, Int64, Int64, @Kwargs{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String}, Int64}, ::String, ::Vararg{String}; kwargs::@Kwargs{})
+    @ Base ./io.jl:410
+  [4] open
+    @ ./io.jl:407 [inlined]
+  [5] #get_all_data#111
+    @ ~/work/obs/Isolated/main.jl:1092 [inlined]
+  [6] top-level scope
+    @ ~/work/obs/Isolated/getdata.jl:8
+  [7] eval(m::Module, e::Any)
+    @ Core ./boot.jl:489
+  [8] include_string(mapexpr::typeof(REPL.softscope), mod::Module, code::String, filename::String)
+    @ Base ./loading.jl:2867
+  [9] inlineeval(m::Module, code::String, code_line::Int64, code_column::Int64, file::String; softscope::Bool)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:271
+ [10] (::VSCodeServer.var"#repl_runcode_request##6#repl_runcode_request##7"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:181
+ [11] withpath(f::VSCodeServer.var"#repl_runcode_request##6#repl_runcode_request##7"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, path::String)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/repl.jl:278
+ [12] (::VSCodeServer.var"#repl_runcode_request##4#repl_runcode_request##5"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:179
+ [13] hideprompt(f::VSCodeServer.var"#repl_runcode_request##4#repl_runcode_request##5"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/repl.jl:38
+ [14] #repl_runcode_request##2
+    @ ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:150 [inlined]
+ [15] with_logstate(f::VSCodeServer.var"#repl_runcode_request##2#repl_runcode_request##3"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:540
+ [16] with_logger
+    @ ./logging/logging.jl:651 [inlined]
+ [17] (::VSCodeServer.var"#repl_runcode_request##0#repl_runcode_request##1"{VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:263
+ [18] (::VSCodeServer.var"#start_eval_backend##0#start_eval_backend##1")()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:34Processing sector 91: light curve loadedMethodError: no method matching save_lc_figure(::String, ::Int64, ::Int64; rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64)
+This method does not support all of the given keyword arguments (and may not support any).
+
+Closest candidates are:
+  save_lc_figure(::Any, ::Any, ::Any; Δm_R, aperture_radius, day_step, jd_box, σ_tol, n_out) got unsupported keyword argument "rewrite_gaia_stars_file"
+   @ Main ~/work/obs/Isolated/main.jl:1034
+
+Stacktrace:
+  [1] kwerr(::@NamedTuple{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, ::Function, ::String, ::Int64, ::Int64)
+    @ Base ./error.jl:175
+  [2] (::var"#113#114"{Bool, Int64, Int64, @Kwargs{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String}, Int64})(log_io::IOStream)
+    @ Main ~/work/obs/Isolated/main.jl:1110
+  [3] open(::var"#113#114"{Bool, Int64, Int64, @Kwargs{rewrite_gaia_stars_file::Bool, day_step::Int64, jd_box::Float64, σ_tol::Int64, n_out::Int64}, Vector{String}, Int64}, ::String, ::Vararg{String}; kwargs::@Kwargs{})
+    @ Base ./io.jl:410
+  [4] open
+    @ ./io.jl:407 [inlined]
+  [5] #get_all_data#111
+    @ ~/work/obs/Isolated/main.jl:1092 [inlined]
+  [6] top-level scope
+    @ ~/work/obs/Isolated/getdata.jl:8
+  [7] eval(m::Module, e::Any)
+    @ Core ./boot.jl:489
+  [8] include_string(mapexpr::typeof(REPL.softscope), mod::Module, code::String, filename::String)
+    @ Base ./loading.jl:2867
+  [9] inlineeval(m::Module, code::String, code_line::Int64, code_column::Int64, file::String; softscope::Bool)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:271
+ [10] (::VSCodeServer.var"#repl_runcode_request##6#repl_runcode_request##7"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:181
+ [11] withpath(f::VSCodeServer.var"#repl_runcode_request##6#repl_runcode_request##7"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, path::String)
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/repl.jl:278
+ [12] (::VSCodeServer.var"#repl_runcode_request##4#repl_runcode_request##5"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:179
+ [13] hideprompt(f::VSCodeServer.var"#repl_runcode_request##4#repl_runcode_request##5"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams})
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/repl.jl:38
+ [14] #repl_runcode_request##2
+    @ ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:150 [inlined]
+ [15] with_logstate(f::VSCodeServer.var"#repl_runcode_request##2#repl_runcode_request##3"{Bool, Bool, Bool, Module, String, Int64, Int64, String, VSCodeServer.ReplRunCodeRequestParams}, logstate::Base.CoreLogging.LogState)
+    @ Base.CoreLogging ./logging/logging.jl:540
+ [16] with_logger
+    @ ./logging/logging.jl:651 [inlined]
+ [17] (::VSCodeServer.var"#repl_runcode_request##0#repl_runcode_request##1"{VSCodeServer.ReplRunCodeRequestParams})()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:263
+ [18] (::VSCodeServer.var"#start_eval_backend##0#start_eval_backend##1")()
+    @ VSCodeServer ~/.vscode/extensions/julialang.language-julia-1.170.2/scripts/packages/VSCodeServer/src/eval.jl:34
