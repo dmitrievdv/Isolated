@@ -15,6 +15,7 @@ using Dates
 using LinearAlgebra
 using Statistics
 using LeastSquaresOptim
+import Optim as Opt
 using ProgressBars
 using Dierckx
 using LombScargle
@@ -927,6 +928,8 @@ function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5
 
     hm = heatmap!(ax_cut, cut_hm_data, colorrange = (0,max(minimum(max_flux_hm_data), log10(1.5e5))))
     # sc = scatter!(ax_cut, stars_x, stars_y, markersize = 5*sizes, color = :lightgray)
+    println(n_sizes)
+
     for i_size = 1:n_sizes
         scatter!(ax_cut, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
                                 markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))

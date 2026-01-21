@@ -1,22 +1,34 @@
-function create_gaia_prf_model(star_name, sector, cut_size, Δm_R = 5)
-    create_gaia_prf_model(star_name, sector, cut_size, cut_size, Δm_R)
+function create_gaia_prf_model(star_name, sector, cut_size, args...)
+    create_gaia_prf_model(star_name, sector, cut_size, cut_size, args...)
 end
 
 function create_gaia_prf_model(star_name, sector, cut_width, cut_height, Δm_R)
+    create_gaia_prf_model(star_name, sector, cut_width, cut_height, Δm_R, 0.0, 0.0)
+end
+
+function create_gaia_prf_model(star_name, sector, cut_width, cut_height, Δm_R, shift_x, shift_y)
     fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
 
     supersampled_prf = get_tesscut_prf_supersampled(fits)
     gaia_stars_data = load_gaia_stars_in_view_data(star_name, fits, Δm_R)
-    n_gaia_stars = nrow(gaia_stars_data)
+    # n_gaia_stars = nrow(gaia_stars_data)
     gaia_data = load_star_gaia_data(star_name)
 
-    star_index = findfirst(s -> s == gaia_data.source_id, gaia_stars_data.source_id)
-    star_px = gaia_stars_data.px_x[star_index], gaia_stars_data.px_y[star_index]
+    # star_index = findfirst(s -> s == gaia_data.source_id, gaia_stars_data.source_id)
+    # star_px = gaia_stars_data.px_x[star_index], gaia_stars_data.px_y[star_index]
 
+    stars_x = gaia_stars_data.px_x; stars_y = gaia_stars_data.px_y; stars_m_R = gaia_stars_data.phot_rp_mean_mag
+
+    create_gaia_prf_model(supersampled_prf, cut_width, cut_height, stars_x, stars_y, stars_m_R, shift_x, shift_y)
+end
+
+function create_gaia_prf_model(supersampled_prf :: AbstractMatrix, cut_width, cut_height, stars_x, stars_y, stars_m_R, shift_x, shift_y)
+    n_gaia_stars = length(stars_m_R)
+    
     model_cut = zeros(cut_width, cut_height)
     for i_star = 1:n_gaia_stars
-        prf_cut = get_prf_cut(supersampled_prf, cut_width, cut_height, gaia_stars_data.px_x[i_star], gaia_stars_data.px_y[i_star] + 0.2)
-        model_cut += prf_cut*calc_tess_flux_from_mag(gaia_stars_data.phot_rp_mean_mag[i_star])
+        prf_cut = get_prf_cut(supersampled_prf, cut_width, cut_height, stars_x[i_star] + shift_x, stars_y[i_star] + shift_y)
+        model_cut += prf_cut*calc_tess_flux_from_mag(stars_m_R[i_star])
     end
 
     return model_cut
@@ -29,7 +41,18 @@ function plot_gaia_prf_model(star_name, sector, cut_size, bkg_mod_q, bkg_cut_q, 
 
     mjds = read(fits[2], "TIME")
 
-    model = create_gaia_prf_model(star_name, sector, cut_size, Δm_R)
+    # fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
+
+    supersampled_prf = get_tesscut_prf_supersampled(fits)
+    gaia_stars_data = load_gaia_stars_in_view_data(star_name, fits, Δm_R)
+    # n_gaia_stars = nrow(gaia_stars_data)
+    # gaia_data = load_star_gaia_data(star_name)
+
+    # star_index = findfirst(s -> s == gaia_data.source_id, gaia_stars_data.source_id)
+    # star_px = gaia_stars_data.px_x[star_index], gaia_stars_data.px_y[star_index]
+
+    stars_x = gaia_stars_data.px_x; stars_y = gaia_stars_data.px_y; stars_m_R = gaia_stars_data.phot_rp_mean_mag
+    model = create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R, 0.0, 0.0)
 
     bkg_model_cut = sort(vec(model))[round(Int, n_cuts * bkg_mod_q)]
     bkg_mod_pixels = findall(x -> x < bkg_model_cut, model)
@@ -89,9 +112,36 @@ function plot_gaia_prf_model(star_name, sector, cut_size, bkg_mod_q, bkg_cut_q, 
     end
 
     rsd_data = lift(bkg_cut, flux_cut) do bkg_cut, flux_cut
-        tmp_rsd = (flux_cut - bkg_cut - model)
+        tmp_rsd = (flux_cut - bkg_cut - model) ./ model .- 1.0
+        tmp_rsd[bkg_mod_pixels] .= 0.0
         # tmp_rsd[(flux_cut ./ bkg_cut) .< 1.2] .= 1.0
-        tmp_rsd
+        tmp_rsd[1:5,:] .= 0.0
+        tmp_rsd[cut_size-5+1:cut_size,:] .= 0.0
+        tmp_rsd[:,1:5] .= 0.0
+        tmp_rsd[:,cut_size-5+1:cut_size] .= 0.0
+        tmp_rsd .^ 2
+    end
+
+    shift_coords = lift(bkg_cut, flux_cut) do bkg_cut, flux_cut
+
+        function f(shift_coords)
+            model = create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R, shift_coords...)
+            tmp_rsd = (flux_cut - bkg_cut - model) ./ model .- 1.0
+            tmp_rsd[bkg_mod_pixels] .= 0.0
+            # tmp_rsd[(flux_cut ./ bkg_cut) .< 1.2] .= 1.0
+            tmp_rsd[1:5,:] .= 0.0
+            tmp_rsd[cut_size-5+1:cut_size,:] .= 0.0
+            tmp_rsd[:,1:5] .= 0.0
+            tmp_rsd[:,cut_size-5+1:cut_size] .= 0.0
+            # tmp_rsd .^ 2
+            s = sum(tmp_rsd .^ 2)
+            println(s)
+            return s
+        end
+
+        res = Opt.optimize(f, [0.0,0.0])
+        println(res.minimizer)
+        res.minimizer
     end
 
     heatmap!(ax_cut, cut_data, colorrange = (0, log10(maximum(model))))

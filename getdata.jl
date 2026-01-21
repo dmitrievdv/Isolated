@@ -10,4 +10,4 @@ get_all_data([star_name], cut_size; rewrite_files = false, rewrite_gaia_stars_fi
 
 sectors = find_tess_sectors(star_name, tess_max_sectors)
 
-fig = plot_cuts(star_name, sectors[1], cut_size, cut_size; aperture_radius = 3, Δm_R = 5)
+fig = plot_cuts(star_name, sectors[1], cut_size, cut_size; aperture_radius = 3, Δm_R = 7)
