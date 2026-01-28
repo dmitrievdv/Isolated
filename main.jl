@@ -527,6 +527,72 @@ function get_prf_cut(prf_supersampled, cut_width, cut_height, x_source, y_source
     return prf
 end
 
+function add_prf_cut!(cut, flux, prf_supersampled, cut_width, cut_height, x_source, y_source)
+    x_source_px = round(Int, x_source)
+    y_source_px = round(Int, y_source)
+
+    δx = round(Int, (x_source - x_source_px)*9)
+    δy = round(Int, (y_source - y_source_px)*9)
+
+    # prf = zeros(cut_width, cut_height)
+    supersampled_width, supersampled_height = size(prf_supersampled)
+
+    centered_supersampled_sum = [55,63]
+
+    correct_bound(i) = i ≥ 1 ? (i ≤ 117 ? i : 117) : 1
+
+    # supersampled_mask = zeros(supersampled_width, supersampled_height)
+
+    for x_px = 1:cut_width, y_px = 1:cut_height
+        x_prf_source = (x_px - x_source)*9 + 59
+        y_prf_source = (y_px - y_source)*9 + 59
+
+        x_prf_source_int = round(Int, (x_px - x_source)*9 + 59)
+        y_prf_source_int = round(Int, (y_px - y_source)*9 + 59)
+
+        x_prf_start = max(1, x_prf_source_int - 6)
+        x_prf_end = min(supersampled_width, x_prf_source_int + 6)
+
+        y_prf_start = max(1, y_prf_source_int - 6)
+        y_prf_end = min(supersampled_height, y_prf_source_int + 6)
+        # Δx_int = round(Int, Δx)
+        # Δy_int = round(Int, Δy)
+
+        # Δx_frac = Δx - Δx_int
+        # Δy_frac = Δy - Δy_int
+
+
+        for x_prf = x_prf_start:x_prf_end# 1:supersampled_width
+            for y_prf = y_prf_start:y_prf_end# 1:supersampled_height
+                supersampled_mask = 1.0
+                if (abs(x_prf - x_prf_source) ≥ 5) | (abs(y_prf - y_prf_source) ≥ 5)
+                    supersampled_mask = 0.0
+                    continue
+                end
+                if (abs(x_prf - x_prf_source) ≤ 4) & (abs(y_prf - y_prf_source) ≤ 4)
+                    supersampled_mask = 1.0
+                    cut[x_px, y_px] += prf_supersampled[x_prf, y_prf] * supersampled_mask/81 * flux
+                    # println("1.0")
+                    continue
+                end
+                if abs(x_prf - x_prf_source) > 4
+                    supersampled_mask *= 5 - abs(x_prf - x_prf_source)
+                end
+                if abs(y_prf - y_prf_source) > 4
+                    supersampled_mask *= 5 - abs(y_prf - y_prf_source)
+                end
+                cut[x_px, y_px] += prf_supersampled[x_prf, y_prf] * supersampled_mask/81 * flux
+            end
+        end
+        # println(sum(prf_supersampled .* supersampled_mask))
+        # cut = prf[x_px, y_px] = sum(prf_supersampled .* supersampled_mask)/81
+        # if cut[x_px, y_px] < 2e-4
+        #     cut[x_px, y_px] = 0.0
+        # end
+    end
+    return cut
+end
+
 function estimate_tess_ffi_coordinates(cut_fits)
     α_cut, δ_cut = get_reference_radec(cut_fits)
     conversion_matrix_px_to_radec = get_px_to_radec_matrix(cut_fits)
@@ -928,7 +994,7 @@ function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5
 
     hm = heatmap!(ax_cut, cut_hm_data, colorrange = (0,max(minimum(max_flux_hm_data), log10(1.5e5))))
     # sc = scatter!(ax_cut, stars_x, stars_y, markersize = 5*sizes, color = :lightgray)
-    println(n_sizes)
+    println("$n_sizes $Δm_R")
 
     for i_size = 1:n_sizes
         scatter!(ax_cut, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
@@ -1108,7 +1174,8 @@ function get_all_data(star_names, cut_size; rewrite_files = false, aperture_radi
             for sector in sectors
                 print(log_io, "Processing sector $sector: ")
                 try
-                    load_light_curve(star_name, sector, cut_size; rewrite_file = rewrite_files, aperture_radius, Δm_R)
+                    load_light_curve(star_name, sector, cut_size; rewrite_file = rewrite_files, rewrite_gaia_stars_file = rewrite_files,
+                                             aperture_radius, Δm_R)
                     print(log_io, "light curve loaded")
                     save_lc_figure(star_name, sector, cut_size; save_lc_kwargs...)
                     print(log_io, ", plot saved\n")
