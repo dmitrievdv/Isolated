@@ -74,43 +74,67 @@ function get_shift_coords(star_name, sector, cut_size, bkg_mod_q, bkg_cut_q, Δm
         bkg_cut = fit_flat_background(flux_cut, bkg_cut_pixels)
 
         rsd_fit_pixels = filter(rsd_window_pixels) do x
-            model[x] > 0.5*bkg_cut[x]
+            model[x] > 0.3*bkg_cut[x]
         end
         
-        if length(rsd_fit_pixels) < 30
-            continue
-        end
-        function f(shift_coords)
-            model = create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R, shift_coords...)
-            s = 0.0
-            for px in rsd_fit_pixels
-                s += (flux_cut[px] - bkg_cut[px] - model[px]) ./ model[px] .- 1.0
-            end
-            
-            # tmp_rsd[bkg_mod_pixels] .= 0.0
-            # # tmp_rsd[(flux_cut ./ bkg_cut) .< 1.2] .= 1.0
-            # tmp_rsd[1:5,:] .= 0.0
-            # tmp_rsd[cut_size-5+1:cut_size,:] .= 0.0
-            # tmp_rsd[:,1:5] .= 0.0
-            # tmp_rsd[:,cut_size-5+1:cut_size] .= 0.0
-            # # tmp_rsd .^ 2
-            # s = sum(tmp_rsd .^ 2)
-            # println(s)
-            return s
-        end
+        if length(rsd_fit_pixels) > 30
 
-        res = Opt.optimize(f, start_shift_coords)
-        println("$i_cut from $n_cuts; $(length(rsd_fit_pixels)) ", res.minimizer)
-        start_shift_coords = res.minimizer
+            function f(shift_coords)
+                model = create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R, shift_coords...)
+                s = 0.0
+                for px in rsd_fit_pixels
+                    s += ((flux_cut[px] - bkg_cut[px] - model[px]))^2
+                end
+                return s
+            end
+
+            res = Opt.optimize(f, start_shift_coords, Opt.Options(x_abstol = 1e-3))
+
+            # printing using the ANSI escape codes:
+            # \e[2K clears the entire current line
+            # \e[1G moves the cursor to the first column
+            print("\e[2K\e[1G$i_cut from $n_cuts; $(length(rsd_fit_pixels)) $(res.minimizer)",)
+
+            start_shift_coords = res.minimizer
+        end
         shift_coords[i_cut, :] = start_shift_coords
+
+        # set_postfix(iter, Coords=@sprintf("%7.4f, %7.4f", shift_coords[i_cut, 1], shift_coords[i_cut, 2]))
     end
+    print("\n")
     return shift_coords
+end
+
+function calc_shifted_light_curve(star_name, sector, cut_size, Δm_R, aperture_radius, shift_coords)
+    fits = load_tess_cutouts(star_name, cut_size, cut_size)[sector]
+    flux_cuts = read(fits[2], "FLUX")
+    n_cuts = size(flux_cuts)[3]
+
+    mjds = read(fits[2], "TIME")
+
+    gaia_stars_data = load_gaia_stars_in_view_data(star_name, fits, Δm_R, rewrite_file = false)
+    gaia_data = load_star_gaia_data(star_name)
+
+    star_index = findfirst(s -> s == gaia_data.source_id, gaia_stars_data.source_id)
+    star_px = gaia_stars_data.px_x[star_index], gaia_stars_data.px_y[star_index]
+
+    prf = get_tesscut_prf_supersampled(fits)
+    bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, gaia_stars_data.px_x, gaia_stars_data.px_y)
+
+    cuts = [flux_cuts[:,:,i_cut] for i_cut = 1:n_cuts]
+    aperture_prf_correction = calc_aperture_prf_correction.(aperture_radius, star_px[1], star_px[2], shift_coords[:,1], shift_coords[:,2], Ref(prf), cut_size)
+    phot_flux = aperture_prf_correction .* calc_aperture_photometry_bkg_pixels.(cuts, Ref(bkg_pixels), star_px..., aperture_radius)
+
+    return mjds, phot_flux
 end
 
 function plot_gaia_prf_model(star_name, sector, cut_size, bkg_mod_q, bkg_cut_q, Δm_R)
     fits = load_tess_cutouts(star_name, cut_size, cut_size)[sector]
     flux_cuts = read(fits[2], "FLUX")
     n_cuts = size(flux_cuts)[3]
+
+    bkg_cuts = zeros(cut_size, cut_size, n_cuts)
+    shifted_models = zeros(cut_size, cut_size, n_cuts)
 
     mjds = read(fits[2], "TIME")
 
@@ -219,12 +243,12 @@ function plot_gaia_prf_model(star_name, sector, cut_size, bkg_mod_q, bkg_cut_q, 
             model = create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R, shift_coords...)
             s = 0.0
             for px in rsd_fit_pixels.val
-                s += (flux_cut.val[px] - bkg_cut[px] - model[px]) ./ model[px] .- 1.0
+                s += (flux_cut.val[px] - bkg_cut[px] - model[px])^2
             end
             return s
         end
 
-        res = Opt.optimize(f, [0.0,0.0])
+        res = Opt.optimize(f, [0.0,0.0], Opt.LBFGS(), Opt.Options(x_abstol = 1e-3))
         println(res.minimizer)
         res.minimizer
     end
