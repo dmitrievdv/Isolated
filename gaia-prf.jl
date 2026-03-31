@@ -99,9 +99,9 @@ function get_shift_coords(star_name, sector, cut_size, bkg_mod_q, bkg_cut_q, Δm
             return 1/s
         end
 
-            for px in rsd_fit_pixels
-                s += sqrt(abs((flux_cut[px] - bkg_cut[px]) .* model[px]))
-            end
+            # for px in rsd_fit_pixels
+            #     s += sqrt(abs((flux_cut[px] - bkg_cut[px]) .* model[px]))
+            # end
 
             res = Opt.optimize(f, start_shift_coords, Opt.Options(x_abstol = 1e-3))
 
@@ -111,7 +111,7 @@ function get_shift_coords(star_name, sector, cut_size, bkg_mod_q, bkg_cut_q, Δm
             print("\e[2K\e[1G$i_cut from $n_cuts; $(length(rsd_fit_pixels)) $(res.minimizer)",)
 
             start_shift_coords = res.minimizer
-        end
+        
         shift_coords[i_cut, :] = start_shift_coords
 
         # set_postfix(iter, Coords=@sprintf("%7.4f, %7.4f", shift_coords[i_cut, 1], shift_coords[i_cut, 2]))
