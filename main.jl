@@ -179,6 +179,20 @@ function calc_aperture_photometry_bkg_pixels(cut, bkg_positions, star_px_x, star
     return photometry(ap, cut .- bkg_cut)[3]
 end
 
+function calc_aperture_photometry_bkg_pixels_with_sn_ratio(cut, bkg_positions, star_px_x, star_px_y, aperture_radius)
+    # px_width, px_height = size(cut)
+    # n_px = px_width*px_height
+    if !isnothing(findfirst(x -> abs(x) < 1e-8, cut))
+        return NaN, 0.0
+    end
+    bkg_cut = fit_flat_background(cut, bkg_positions)
+    ap = CircularAperture(star_px_x, star_px_y, aperture_radius)
+    phot = photometry(ap, cut .- bkg_cut)[3]
+    sn = phot/photometry(ap, bkg_cut)[3]
+    # println("$phot $sn")
+    return phot, sn
+end
+
 function get_true_radec(α_0, δ_0, Δα, Δδ)
     α_0_rad = α_0/180*π
     δ_0_rad = δ_0/180*π
@@ -681,11 +695,10 @@ function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
     PRFs = [abs.(res.minimizer[i_star])*get_prf_cut(supersampled_prf, cut_width, cut_height, stars_x[i_star], stars_y[i_star])  for i_star = 1:n_stars]
     empty_cut = sum([abs.(res.minimizer[i_star])*fill(get_n_min_median_background(PRFs[i_star], cut_width*cut_height ÷ 4), (cut_width, cut_height)) for i_star = 1:n_stars])
     PRF_cut = sum(PRFs)
-    median_prf = sort(vec(PRF_cut - empty_cut))[cut_width*cut_height ÷ 2]
+    median_prf = sort(vec(PRF_cut - empty_cut))[round(Int, cut_width*cut_height*0.7)]
     median_prf_px = findall(x -> (median_prf - x) > -1e-8, PRF_cut - empty_cut)
 
-    median_cut = median(flux_cut[median_prf_px])
-    final_indeces = findall(x -> (flux_cut[x] - median_cut) < -1e-8, median_prf_px)
+    
 
     # println(PRF_cut)
     # format = Printf.Format("%8.2f "^15 * "\n")
@@ -696,17 +709,22 @@ function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
     # for i = 1:cut_width
     #     Printf.format(stdout, format, empty_cut[:, cut_height - i +1]...)
     # end
-    return median_prf_px[final_indeces]
+    return median_prf_px
 end
 
 function fit_flat_background(flux_cut, bkg_positions)
     cut_width, cut_height = size(flux_cut)
-    bkg_xs = [index[1] for index in bkg_positions]
-    bkg_ys = [index[2] for index in bkg_positions]
-    bkg_fluxes = flux_cut[bkg_positions]
+
+    median_cut = sort(vec(flux_cut[bkg_positions]))[round(Int, length(bkg_positions)*0.7)]
+    final_indeces = bkg_positions[findall(x -> (flux_cut[x] - median_cut) < -1e-8, bkg_positions)]
+    
+
+    bkg_xs = [index[1] for index in final_indeces]
+    bkg_ys = [index[2] for index in final_indeces]
+    bkg_fluxes = flux_cut[final_indeces]
 
     bkg_cut = zeros(cut_width, cut_height)
-    if isempty(bkg_positions)
+    if isempty(final_indeces)
         bkg_cut .= NaN
         return bkg_cut
     end
@@ -834,7 +852,7 @@ function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, r
     light_curve_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv"
 
     # aperture_radius = 5
-    
+    println(!isfile(light_curve_file) | rewrite_file)
     if !isfile(light_curve_file) | rewrite_file
         mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
         prf = get_tesscut_prf_supersampled(fits)
@@ -844,9 +862,19 @@ function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, r
         # println(bkg_pixels)
         cuts = [flux_cuts[:,:,i_cut] for i_cut = 1:n_cuts]
         aperture_prf_correction = calc_aperture_prf_correction(aperture_radius, star_px..., prf, cut_height)
-        phot_flux = aperture_prf_correction * calc_aperture_photometry_bkg_pixels.(cuts, Ref(bkg_pixels), star_px..., aperture_radius)
+        phot_flux = zeros(n_cuts)
+        sn = zeros(n_cuts)
+        for i_cut = 1:n_cuts
+            cut = cuts[i_cut]
+            # println(calc_aperture_photometry_bkg_pixels_with_sn_ratio(cut, bkg_pixels, star_px..., aperture_radius))
+            phot_flux_i, sn_i = calc_aperture_photometry_bkg_pixels_with_sn_ratio(cut, bkg_pixels, star_px..., aperture_radius)
+            phot_flux[i_cut] = phot_flux_i
+            sn[i_cut] = sn_i
+            # println(phot_flux[i_cut], " ", sn[i_cut])
+        end
+        phot_flux *= aperture_prf_correction
 
-        lc_df = DataFrame(:MJD => mjds, :FLUX => phot_flux, :MAG => calc_tess_magnitude.(abs.(phot_flux)))
+        lc_df = DataFrame(:MJD => mjds, :FLUX => phot_flux, :MAG => calc_tess_magnitude.(abs.(phot_flux)), :SN => sn)
         CSV.write("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv", lc_df)
         lc_df
     else
@@ -927,8 +955,9 @@ function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5
 
     prf = get_tesscut_prf_supersampled(fits)
     bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, stars_x, stars_y)
+    
 
-    max_flux_i_cut = findmax(df_lc.FLUX)[2]
+    max_flux_i_cut = findmax(x -> isnan(x) ? -1 : x, df_lc.FLUX)[2]
     # xlabel!(ax_cut, @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
 
     Δδ = conversion_matrix_radec_to_px[:,2]/180
@@ -977,12 +1006,19 @@ function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5
     end
 
     cut_hm_data = lift(i_cut) do i_cut
+        # println(bkg_pixels)
         bkg_cut = fit_flat_background(flux_cuts[:,:,i_cut], bkg_pixels)
+        # println(flux_cuts[:,:,i_cut] - bkg_cut)
         # bkg = get_n_min_mean_background(flux_cuts[:,:,i_cut], n_px ÷ 4)
         log10.(abs.(flux_cuts[:,:,i_cut] - bkg_cut))
     end
 
-
+    bkg_pixels_scatter = lift(i_cut) do i_cut
+        flux_cut = flux_cuts[:,:,i_cut]
+        median_cut = sort(vec(flux_cut))[round(Int, length(bkg_pixels)*0.7)]
+        pixels = bkg_pixels[findall(x -> (flux_cut[x] - median_cut) < -1e-8, bkg_pixels)]
+        [Point2f(index[1], index[2]) for index in pixels]
+    end
 
     cut_slider_label = Label(fig[5, 0:3], text = @lift @sprintf("MJD = %.4f, i_cut = %d, mag = %.2f", mjds[$i_cut], $i_cut, df_lc.MAG[$i_cut]))
 
@@ -991,6 +1027,8 @@ function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5
     max_flux_bkg = fit_flat_background(flux_cuts[:,:,max_flux_i_cut], bkg_pixels)
     max_flux_hm_data = flux_cuts[:,:,max_flux_i_cut] - max_flux_bkg
     max_flux_hm_data_no_bkg = flux_cuts[:,:,max_flux_i_cut]
+
+    # println("$max_flux_bkg $max_flux_i_cut")
 
     hm = heatmap!(ax_cut, cut_hm_data, colorrange = (0,max(minimum(max_flux_hm_data), log10(1.5e5))))
     # sc = scatter!(ax_cut, stars_x, stars_y, markersize = 5*sizes, color = :lightgray)
@@ -1001,7 +1039,7 @@ function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5
                                 markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
     end
 
-    scatter!(ax_cut, [index[1] for index in bkg_pixels], [index[2] for index in bkg_pixels]; 
+    scatter!(ax_cut, bkg_pixels_scatter; 
             color = :red, marker = :xcross, alpha = @lift($(bkg_check.checked) ? 1.0 : 0.0))
 
     scatter!(ax_cut, star_px...; marker = :cross, color = :magenta, label = star_name)
