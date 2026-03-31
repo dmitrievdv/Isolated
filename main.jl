@@ -834,6 +834,11 @@ function calc_aperture_prf_correction(aperture_radius :: Real, star_px_x, star_p
     aperture_prf_correction(aperture, star_px_x, star_px_y, supersampled_prf, cut_size)
 end
 
+function calc_aperture_prf_correction(aperture_radius :: Real, star_px_x, star_px_y, shift_x, shift_y, supersampled_prf, cut_size)
+    aperture = CircularAperture(star_px_x, star_px_y, aperture_radius)
+    aperture_prf_correction(aperture, star_px_x + shift_x, star_px_y + shift_y, supersampled_prf, cut_size)
+end
+
 load_light_curve(star_name, sector, cut_size; kwargs...) = load_light_curve(star_name, sector, cut_size, cut_size; kwargs...)
 
 function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, rewrite_file = false, rewrite_gaia_stars_file = false, aperture_radius=3)
