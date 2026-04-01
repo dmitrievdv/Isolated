@@ -58,7 +58,7 @@ function get_shift_coords(star_name, sector, cut_size, bkg_mod_q, bkg_cut_q, Δm
     stars_x = gaia_stars_data.px_x; stars_y = gaia_stars_data.px_y; stars_m_R = gaia_stars_data.phot_rp_mean_mag
     model = create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R, 0.0, 0.0)
 
-    bkg_model_cut = sort(vec(model))[round(Int, n_cuts * bkg_mod_q)]
+    bkg_model_cut = sort(vec(model))[round(Int, cut_size * cut_size * bkg_mod_q)]
     bkg_mod_pixels = findall(x -> x < bkg_model_cut, model)
     rsd_window_pixels = filter(findall(x -> true, model)) do x
         (5 < x[1] ≤ cut_size - 5) & (5 < x[2] ≤ cut_size - 5)
@@ -67,11 +67,12 @@ function get_shift_coords(star_name, sector, cut_size, bkg_mod_q, bkg_cut_q, Δm
     shift_coords = zeros(n_cuts, 2)
     start_shift_coords = [0.0, 0.0]
     for i_cut = 1:n_cuts
+        # start_shift_coords = [0.0, 0.0]
         flux_cut = flux_cuts[:,:,i_cut]
         bkg_cut_cut = sort(flux_cut[bkg_mod_pixels])[round(Int, length(bkg_mod_pixels)*bkg_cut_q)]
         bkg_cut_pixels = bkg_mod_pixels[findall(x -> flux_cut[x] < bkg_cut_cut, bkg_mod_pixels)]
 
-        bkg_cut = fit_flat_background(flux_cut, bkg_cut_pixels)
+        bkg_cut = fit_flat_background_precise_indeces(flux_cut, bkg_cut_pixels)
 
         rsd_fit_pixels = rsd_window_pixels #filter(rsd_window_pixels) do x
             # model[x] > 0.5*bkg_cut[x]
@@ -103,7 +104,7 @@ function get_shift_coords(star_name, sector, cut_size, bkg_mod_q, bkg_cut_q, Δm
             #     s += sqrt(abs((flux_cut[px] - bkg_cut[px]) .* model[px]))
             # end
 
-            res = Opt.optimize(f, start_shift_coords, Opt.Options(x_abstol = 1e-3))
+            res = Opt.optimize(f, start_shift_coords, Opt.Options(g_abstol = 1e-10))
 
             # printing using the ANSI escape codes:
             # \e[2K clears the entire current line
@@ -235,11 +236,15 @@ function test_gaia_prf_model_fit(star_name, sector, cut_size, bkg_mod_q, bkg_cut
 
     stars_x = gaia_stars_data.px_x; stars_y = gaia_stars_data.px_y; stars_m_R = gaia_stars_data.phot_rp_mean_mag
     model = create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R, 0.0, 0.0)
+
+    stars_m_R_mean = fill(mean(stars_m_R), length(stars_x))
+    model_mask = create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R_mean, 0.0, 0.0)
+    
     # model2 = create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R, 0.0, 0.0)
 
     # println(model - model2)
 
-    bkg_model_cut = sort(vec(model))[round(Int, n_cuts * bkg_mod_q)]
+    bkg_model_cut = sort(vec(model))[round(Int, cut_size^2 * bkg_mod_q)]
     bkg_mod_pixels = findall(x -> x < bkg_model_cut, model)
 
     rsd_window_pixels = filter(findall(x -> true, model)) do x
@@ -247,11 +252,11 @@ function test_gaia_prf_model_fit(star_name, sector, cut_size, bkg_mod_q, bkg_cut
     end
 
     fig = Figure()
-    ax_mod = Axis(fig[1,1], aspect = DataAspect())
+    ax_mod = Axis(fig[1,1], aspect = DataAspect(), tellheight = true)
     ax_cut = Axis(fig[1,2], aspect = DataAspect())
     ax_rsd = Axis(fig[1,3], aspect = DataAspect())
 
-    bkg_model_cut = sort(vec(model))[round(Int, n_cuts * bkg_mod_q)]
+    bkg_model_cut = sort(vec(model))[round(Int, cut_size^2 * bkg_mod_q)]
     bkg_mod_pixels = findall(x -> x < bkg_model_cut, model)
 
     rsd_window_pixels = filter(findall(x -> true, model)) do x
@@ -282,8 +287,9 @@ function test_gaia_prf_model_fit(star_name, sector, cut_size, bkg_mod_q, bkg_cut
         i_cut[] = val
     end
 
-    control_x_slider = Slider(fig[0, 1], range = -1:0.01:1, startvalue = 0, tellwidth = false)
-    control_y_slider = Slider(fig[1, 0], range = -1:0.01:1, startvalue = 0, tellheight = false, horizontal = false)
+    control_x_slider = Slider(fig[0, 1], range = -1:0.001:1, startvalue = 0, tellwidth = false)
+    control_y_slider = Slider(fig[1, 0], range = -1:0.001:1, startvalue = 0, tellheight = false, horizontal = false)
+    opt_button = Button(fig[0,2], label = "Optimize", tellwidth = false)
 
     shift_coords = lift(control_x_slider.value, control_y_slider.value) do x, y
         x, y
@@ -315,8 +321,6 @@ function test_gaia_prf_model_fit(star_name, sector, cut_size, bkg_mod_q, bkg_cut
         log10.(abs.(flux_cut.val - bkg_cut))
     end
 
-   
-
     shifted_model = lift(shift_coords) do shift_coords
         create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R, shift_coords...)
     end
@@ -337,7 +341,7 @@ function test_gaia_prf_model_fit(star_name, sector, cut_size, bkg_mod_q, bkg_cut
     shifted_rsd_data = lift(shifted_model, bkg_cut) do model, bkg_cut
         tmp_rsd = ((flux_cut.val - bkg_cut) .* model)
         rsd = zeros(cut_size, cut_size)
-        tmp_rsd[bkg_mod_pixels] .= 0.0
+        # tmp_rsd[bkg_mod_pixels] .= 0.0
         # tmp_rsd[(flux_cut ./ bkg_cut) .< 1.2] .= 1.0
         tmp_rsd[1:5,:] .= 0.0
         tmp_rsd[cut_size-5+1:cut_size,:] .= 0.0
@@ -348,11 +352,45 @@ function test_gaia_prf_model_fit(star_name, sector, cut_size, bkg_mod_q, bkg_cut
         log10.((sqrt.(abs.(rsd))))
     end
 
+    on(opt_button.clicks) do n
+        start_shift_coords = [shift_coords.val...]
+        flux_cut_val = flux_cut.val
+        bkg_cut_val = bkg_cut.val
+
+        # println(typeof(start_shift_coords))
+        
+        function compute_rsd(coords)
+            model = create_gaia_prf_model(supersampled_prf, cut_size, cut_size, stars_x, stars_y, stars_m_R_mean, coords...)
+            # tmp_rsd = ((flux_cut.val - bkg_cut.val) .* model)
+            rsd = 0.0
+            for x_px = 6:cut_size-5, y_px = 6:cut_size-5
+                rsd_xy = ((flux_cut_val[x_px,y_px] - bkg_cut_val[x_px,y_px]) .* model[x_px,y_px])
+                rsd += (√(abs(rsd_xy)))
+            end
+            rsd = 1/(rsd/cut_size^2)
+        end
+
+        res = Opt.optimize(compute_rsd, start_shift_coords, Opt.Options(g_abstol = 1e-10))
+
+        println(res)
+
+        set_close_to!(control_x_slider, res.minimizer[1])
+        set_close_to!(control_y_slider, res.minimizer[2])
+    end
+
     rsd = lift(shifted_rsd_data) do shifted_rsd_data
         1 / (sum(10 .^ shifted_rsd_data) / cut_size^2)
     end
 
-    rsd_label = Label(fig[0,3], tellwidth = false, text = @lift @sprintf("RSD = %.6f", $rsd))
+    shift_x = lift(shift_coords) do shift_coords
+        shift_coords[1]
+    end
+
+    shift_y = lift(shift_coords) do shift_coords
+        shift_coords[2]
+    end
+
+    rsd_label = Label(fig[0,3], tellwidth = false, text = @lift @sprintf("RSD = %.8f, x = %.3f, y = %.3f", $rsd, $shift_x, $shift_y))
 
     heatmap!(ax_cut, bkg_cut_data, colorrange = (0, log10(maximum(model))))
     scatter!(ax_cut, bkg_cut_scatter, color = :red, marker = :xcross)
@@ -361,7 +399,7 @@ function test_gaia_prf_model_fit(star_name, sector, cut_size, bkg_mod_q, bkg_cut
     scatter!(ax_mod, [index[1] for index in bkg_mod_pixels], [index[2] for index in bkg_mod_pixels]; 
             color = :red, marker = :xcross)
     heatmap!(ax_rsd, shifted_rsd_data, colorrange = (0, log10(maximum(model))))
-    scatter!(ax_rsd, rsd_fit_scatter; color = :red, marker = :xcross)
+    # scatter!(ax_rsd, rsd_fit_scatter; color = :red, marker = :xcross)
     fig
 end
 

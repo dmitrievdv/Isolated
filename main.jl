@@ -712,6 +712,36 @@ function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
     return median_prf_px
 end
 
+function fit_flat_background_precise_indeces(flux_cut, bkg_positions)
+    cut_width, cut_height = size(flux_cut)
+    
+
+    bkg_xs = [index[1] for index in bkg_positions]
+    bkg_ys = [index[2] for index in bkg_positions]
+    bkg_fluxes = flux_cut[bkg_positions]
+
+    bkg_cut = zeros(cut_width, cut_height)
+    if isempty(bkg_positions)
+        bkg_cut .= NaN
+        return bkg_cut
+    end
+
+    function to_optimize(pars)
+        normal = √(pars[1]^2 + pars[2]^2 + pars[3]^2)
+        return bkg_fluxes - (pars[4]*normal .- pars[1]*bkg_xs - pars[2]*bkg_ys)/pars[3]
+    end
+
+    bkg_plane = optimize(to_optimize, [0.0,0.0,1.0,100.0], LevenbergMarquardt()).minimizer
+
+    
+    normal = √(bkg_plane[1]^2 + bkg_plane[2]^2 + bkg_plane[3]^2)
+    for x = 1:cut_width, y = 1:cut_height
+        bkg_cut[x,y] = (bkg_plane[4]*normal - bkg_plane[1]*x - bkg_plane[2]*y)/bkg_plane[3]
+    end
+
+    return bkg_cut
+end
+
 function fit_flat_background(flux_cut, bkg_positions)
     cut_width, cut_height = size(flux_cut)
 
