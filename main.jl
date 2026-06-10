@@ -120,10 +120,17 @@ function get_tesscut_corners(fits)
     return [bottom_left, top_left, top_right, bottom_right]
 end
 
+function get_gaia_stars_in_distance(center, distance, mag_threshold; gaia = "dr3")
+    distance_string = "DISTANCE(POINT('ICRS', $(center[1]), $(center[2])), POINT('ICRS', ra, dec))"
+    df_gaia = convert_vo_to_df(execute(TAPService(:gaia), "select * from gaia$gaia.gaia_source where DISTANCE(POINT('ICRS', $(center[1]),"*
+                                              " $(center[2])), POINT('ICRS', ra, dec)) < $distance and phot_rp_mean_mag < $mag_threshold"))
+end
+
 function get_gaia_stars_in_poly(corners, mag_threshold; gaia = "dr3")
     fold_corner = cs -> foldl((c1, c2) -> c1*", "*c2, cs)
     corners_string = fold_corner([fold_corner(string.(corner)) for corner in corners])
-    df_gaia = DataFrame(execute(TAPService(:gaia), "select * from gaia$gaia.gaia_source where CONTAINS(POINT('ICRS', ra, dec),"*
+    println(corners_string)
+    df_gaia = convert_vo_to_df(execute(TAPService(:gaia), "select * from gaia$gaia.gaia_source where CONTAINS(POINT('ICRS', ra, dec),"*
                                               " POLYGON('ICRS', $corners_string)) = 1 and phot_rp_mean_mag < $mag_threshold"))
 end
 
@@ -680,8 +687,11 @@ function create_gaia_datafiles(star_name; rewrite = false)
         star_R = gaia_data.phot_rp_mean_mag
         gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_stars_in_view.csv"
 
+        distance = √((corners[1][1] - corners[3][1])^2 + (corners[1][2] - corners[3][2])^2)/2
+        center = sum(corners)/4
+
         if !isfile(gaia_stars_file) | rewrite
-            data = get_gaia_stars_in_poly(corners, star_R + Δm_R; gaia = "dr2")
+            data = get_gaia_stars_in_distance(center, distance*1.2, star_R + Δm_R; gaia = "dr2")
             CSV.write(gaia_stars_file, data)
         end
     end
@@ -816,9 +826,12 @@ function load_gaia_stars_in_view_data(star_name, fits, Δm_R = 5; rewrite_file =
     sector = read_key(fits[1], "SECTOR")[1]
     # println(sector)
     gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/gaia_stars_in_view_sector_$sector.csv"
+    distance = √((corners[1][1] - corners[3][1])^2 + (corners[1][2] - corners[3][2])^2)/2
+    center = sum(corners)/4
     gaia_stars_df = if (!isfile(gaia_stars_file)) | rewrite_file
         mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
-        data = get_gaia_stars_in_poly(corners, star_R + 20)
+        # data = get_gaia_stars_in_poly(corners, star_R + 20)
+        data = get_gaia_stars_in_distance(center, distance*1.2, star_R + 20)
         reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
         reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
         conversion_matrix_px_to_radec = [read_key(fits[2], "11PC4")[1] read_key(fits[2], "12PC4")[1]
@@ -949,6 +962,141 @@ function find_tess_sectors(star_name, max_sector)
     return sectors
 end
 
+function plot_cut(star_name, sector, cut_width, cut_height; Δm_R = 5)
+    cut_size = cut_height
+    fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
+    reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
+    reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
+    conversion_matrix_px_to_radec = [read_key(fits[2], "11PC4")[1] read_key(fits[2], "12PC4")[1]
+                                 read_key(fits[2], "21PC4")[1] read_key(fits[2], "22PC4")[1]]
+
+    conversion_matrix_radec_to_px = inv(conversion_matrix_px_to_radec)
+
+    flux_cuts = read(fits[2], "FLUX")
+    n_cuts = size(flux_cuts)[3]
+
+    fig = Figure()
+
+    ax_cut = Axis(fig[1:2,1:2], title = "$star_name, sector $sector", aspect = DataAspect())
+    xlims!(ax_cut, (0.5, cut_width + 0.5))
+    ylims!(ax_cut, (0.5, cut_height + 0.5))
+    ax_arrows = Axis(fig[2,0], aspect = DataAspect(), width = 200, title = @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
+
+    # df_lc = load_light_curve(star_name, sector, cut_size; aperture_radius, Δm_R)
+    # phot_flux = df_lc.FLUX; 
+    mjds = read(fits[2], "TIME")
+    df_star = load_star_gaia_data(star_name)
+    # frame_stars_df = load_gaia_stars_in_view_data(star_name, fits, Δm_R)
+
+    # star_index = findfirst(x -> x == df_star.source_id, frame_stars_df.source_id)
+    # stars_x = frame_stars_df.px_x; stars_y = frame_stars_df.px_y
+    # star_px = frame_stars_df.px_x[star_index], frame_stars_df.px_y[star_index]
+
+    # stars_mag = frame_stars_df.phot_rp_mean_mag
+
+    Δδ = conversion_matrix_radec_to_px[:,2]/180
+    Δα = conversion_matrix_radec_to_px[:,1]/180
+
+    xlims!(ax_arrows, -1.2, 1.2)
+    ylims!(ax_arrows, -1.2, 1.2)
+
+    α_arrow_label = Δα + 0.3*Δδ
+    δ_arrow_label = Δδ + 0.3*Δα
+
+
+    text!(ax_arrows, α_arrow_label..., text = "α", align = (:center, :center))
+    text!(ax_arrows, δ_arrow_label..., text = "δ", align = (:center, :center))
+
+    arrows2d!(ax_arrows, [0, 0], [0, 0], [Δα[1], Δδ[1]], [Δα[2], Δδ[2]])
+    hidedecorations!(ax_arrows)
+    hidespines!(ax_arrows)
+
+    # min_mag = minimum(stars_mag)
+    # max_mag = maximum(stars_mag)
+    # min_int_mag = round(Int, min_mag)
+    # max_int_mag = round(Int, max_mag)
+    # n_sizes = max_int_mag - min_int_mag + 1
+    # stars_int_mag = round.(Int, stars_mag)
+
+    # sizes_groups_stars_x = [stars_x[stars_int_mag .== int_mag] for int_mag = max_int_mag:-1:min_int_mag]
+    # sizes_groups_stars_y = [stars_y[stars_int_mag .== int_mag] for int_mag = max_int_mag:-1:min_int_mag]
+    # sizes = (maximum(stars_mag) .- stars_mag)
+
+    prf = get_tesscut_prf_supersampled(fits)
+    # bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, stars_x, stars_y)
+    
+
+    # max_flux_i_cut = findmax(x -> isnan(x) ? -1 : x, df_lc.FLUX)[2]
+    max_flux_i_cut = 500
+
+    i_cut = Observable(500)
+
+    next_button = Button(fig[4,0], label = "Next", tellwidth = false)
+    prev_button = Button(fig[4,3], label = "Prev", tellwidth = false)
+
+    cut_slider = Slider(fig[3, 0:3], range = 1:n_cuts, startvalue = 500)
+
+    on(next_button.clicks) do n
+        i_cut[] += 1
+        i_cut[] = (i_cut[] - 1) % n_cuts + 1
+    end
+
+    on(prev_button.clicks) do n
+        i_cut[] -= 1
+        i_cut[] = (i_cut[] - 1) % n_cuts + 1
+    end
+
+    on(cut_slider.value) do val
+        i_cut[] = val
+    end
+
+    n_px = cut_width*cut_height
+
+    cut_hm_data = lift(i_cut) do i_cut
+        # println(bkg_pixels)
+        # bkg_cut = fit_flat_background(flux_cuts[:,:,i_cut], bkg_pixels)
+        # println(flux_cuts[:,:,i_cut] - bkg_cut)
+        bkg = get_n_min_mean_background(flux_cuts[:,:,i_cut], n_px ÷ 4)
+        log10.(abs.(flux_cuts[:,:,i_cut] .- bkg))
+    end
+
+    # bkg_pixels_scatter = lift(i_cut) do i_cut
+    #     flux_cut = flux_cuts[:,:,i_cut]
+    #     median_cut = sort(vec(flux_cut))[round(Int, length(bkg_pixels)*0.7)]
+    #     pixels = bkg_pixels[findall(x -> (flux_cut[x] - median_cut) < -1e-8, bkg_pixels)]
+    #     [Point2f(index[1], index[2]) for index in pixels]
+    # end
+
+    cut_slider_label = Label(fig[4, 0:3], text = @lift @sprintf("MJD = %.4f, i_cut = %d", mjds[$i_cut], $i_cut))
+
+    max_flux_bkg = get_n_min_mean_background(flux_cuts[:,:,max_flux_i_cut], n_px ÷ 4)
+    max_flux_hm_data = flux_cuts[:,:,max_flux_i_cut] .- max_flux_bkg
+    max_flux_hm_data_no_bkg = flux_cuts[:,:,max_flux_i_cut]
+
+    # println("$max_flux_bkg $max_flux_i_cut")
+
+    hm = heatmap!(ax_cut, cut_hm_data, colorrange = (0,max(minimum(max_flux_hm_data), log10(1.5e5))))
+    # sc = scatter!(ax_cut, stars_x, stars_y, markersize = 5*sizes, color = :lightgray)
+    # println("$n_sizes $Δm_R")
+
+    # for i_size = 1:n_sizes
+    #     scatter!(ax_cut, sizes_groups_stars_x[i_size], sizes_groups_stars_y[i_size], 
+    #                             markersize = (25 ÷ n_sizes)*i_size, color = :lightgray, label = string(max_int_mag - i_size + 1))
+    # end
+
+    # scatter!(ax_cut, bkg_pixels_scatter; 
+    #         color = :red, marker = :xcross, alpha = @lift($(bkg_check.checked) ? 1.0 : 0.0))
+
+    # scatter!(ax_cut, star_px...; marker = :cross, color = :magenta, label = star_name)
+    Colorbar(fig[1:2,3], hm, label = "lg TESS flux")
+    # Legend(fig[1,0], ax_cut, "GAIA R mag")
+
+    slider_time = @lift mjds[$i_cut]
+    # slider_flux = @lift phot_flux[$i_cut]
+
+    fig
+end
+
 function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5, Δm_R = 5)
     cut_size = cut_height
     fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
@@ -979,6 +1127,7 @@ function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5
 
     df_lc = load_light_curve(star_name, sector, cut_size; aperture_radius, Δm_R)
     phot_flux = df_lc.FLUX; mjds = df_lc.MJD
+
     df_star = load_star_gaia_data(star_name)
     frame_stars_df = load_gaia_stars_in_view_data(star_name, fits, Δm_R)
 

@@ -1,25 +1,50 @@
+function convert_vo_to_df(tb)
+    df_tb = DataFrame(tb)
+    col_names = names(df_tb)
+    df = DataFrame()
+
+    n_rows = length(tb)
+
+    for col_name in col_names
+        column_data = []
+        for i_row = 1:n_rows
+            column_data_i = try
+                getproperty(tb[i_row], Symbol("$col_name")).val
+            catch
+                getproperty(tb[i_row], Symbol("$col_name"))
+            end
+            push!(column_data, column_data_i)
+        end
+        type = eltype(column_data)
+        df[!,col_name] = convert.(type, column_data)
+    end
+
+    df
+end
+
 function get_star_gaia_data(star_name; gaia = "dr3")
-    df_simbad = DataFrame(execute(TAPService(:simbad), "select top 5 oid, main_id, ids 
+    df_simbad = convert_vo_to_df(execute(TAPService(:simbad), "select top 5 oid, main_id, ids 
     FROM ident 
     JOIN basic ON ident.oidref = basic.oid
     JOIN ids on ident.oidref = ids.oidref
     where id = '$star_name'"))
 
     gaia_regex = Regex("gaia $gaia (?<id>[0-9]+)", "i")
+    # println(df_simbad.ids)
     gaia_id = parse(Int, match(gaia_regex, df_simbad.ids[1])[:id])
 
-    df_gaia = DataFrame(execute(TAPService(:gaia), "select top 1 * from gaia$gaia.gaia_source where source_id = $gaia_id"))
+    df_gaia = convert_vo_to_df(execute(TAPService(:gaia), "select top 1 * from gaia$gaia.gaia_source where source_id = $gaia_id"))
     return df_gaia[1,:]
 end
 
 function get_star_coords(star_name)
-    df_simbad = DataFrame(execute(TAPService(:simbad), "select top 5 * FROM ident JOIN basic ON ident.oidref = basic.oid where id = '$star_name'"))
+    df_simbad = convert_vo_to_df(execute(TAPService(:simbad), "select top 5 * FROM ident JOIN basic ON ident.oidref = basic.oid where id = '$star_name'"))
 
     return df_simbad.ra[1], df_simbad.dec[1]
 end
 
 function get_star_coords_gaia(star_name; gaia = "dr3")
-    df_simbad = DataFrame(execute(TAPService(:simbad), "select top 5 oid, main_id, ids 
+    df_simbad = convert_vo_to_df(execute(TAPService(:simbad), "select top 5 oid, main_id, ids 
     FROM ident 
     JOIN basic ON ident.oidref = basic.oid
     JOIN ids on ident.oidref = ids.oidref
@@ -28,12 +53,12 @@ function get_star_coords_gaia(star_name; gaia = "dr3")
     gaia_regex = Regex("gaia $gaia (?<id>[0-9]+)", "i")
     gaia_id = parse(Int, match(gaia_regex, df_simbad.ids[1])[:id])
 
-    df_gaia = DataFrame(execute(TAPService(:gaia), "select top 1 source_id, ra, dec from gaia$gaia.gaia_source where source_id = $gaia_id"))
+    df_gaia = convert_vo_to_df(execute(TAPService(:gaia), "select top 1 source_id, ra, dec from gaia$gaia.gaia_source where source_id = $gaia_id"))
     return df_gaia.ra[1], df_gaia.dec[1]
 end
 
 function brightest_near_relative_mag(star_ra, star_dec, box_width, box_height; gaia = "dr3")
-    df_gaia = DataFrame(execute(TAPService(:gaia), "select * from gaia$gaia.gaia_source where CONTAINS(POINT('ICRS', ra, dec),"*
+    df_gaia = convert_vo_to_df(execute(TAPService(:gaia), "select * from gaia$gaia.gaia_source where CONTAINS(POINT('ICRS', ra, dec),"*
                                               " BOX('ICRS', $star_ra, $star_dec, $box_width, $box_height)) = 1"))
 
     gaia_dist = @. sqrt((cos(star_dec/180*π)*(df_gaia.ra - star_ra))^2 + (df_gaia.dec - star_dec)^2)
@@ -64,7 +89,7 @@ function brightest_near_relative_mag(star_ra, star_dec, box_width, box_height; g
 end
 
 function check_star_for_isolation(star_name, box_width, box_height, mag_threshold; kwargs...)
-    df_simbad = DataFrame(execute(TAPService(:simbad), "select top 5 * FROM ident JOIN basic ON ident.oidref = basic.oid where id = '$star_name'"))
+    df_simbad = convert_vo_to_df(execute(TAPService(:simbad), "select top 5 * FROM ident JOIN basic ON ident.oidref = basic.oid where id = '$star_name'"))
 
     star_ra = df_simbad.ra[1]
     star_dec = df_simbad.dec[1]
@@ -73,7 +98,7 @@ function check_star_for_isolation(star_name, box_width, box_height, mag_threshol
 end
 
 function check_star_for_isolation(star_ra, star_dec, box_width, box_height, mag_threshold; gaia = "dr3")
-    df_gaia = DataFrame(execute(TAPService(:gaia), "select * from gaia$gaia.gaia_source where CONTAINS(POINT('ICRS', ra, dec),"*
+    df_gaia = convert_vo_to_df(execute(TAPService(:gaia), "select * from gaia$gaia.gaia_source where CONTAINS(POINT('ICRS', ra, dec),"*
                                               " BOX('ICRS', $star_ra, $star_dec, $box_width, $box_height)) = 1"))
 
     gaia_dist = @. sqrt((cos(star_dec/180*π)*(df_gaia.ra - star_ra))^2 + (df_gaia.dec - star_dec)^2)
@@ -88,7 +113,7 @@ function check_star_for_isolation(star_ra, star_dec, box_width, box_height, mag_
 end
 
 function get_simbad_young_stars(mag_min, mag_max)
-    df_simbad_sp = DataFrame(execute(TAPService(:simbad), """select oid, otype, main_id, ra, dec, sptype, V, R, "year",  ids
+    df_simbad_sp = convert_vo_to_df(execute(TAPService(:simbad), """select oid, otype, main_id, ra, dec, sptype, V, R, "year",  ids
 from basic 
 join allfluxes on oid = allfluxes.oidref 
 join ids on oid = ids.oidref
@@ -126,7 +151,7 @@ where (otype = 'TT*' or otype = 'Ae*' or otype = 'Or*') and V < $mag_min and V >
         main_name = join(split(main_name), " ")
         df_simbad[i_star, "star_name"] = main_name
     end
-    df_simbad
+    df_simbad_sp
 end
 
 function check_for_isolation(df_stars, box_size, mag_thres; gaia = "dr2")
