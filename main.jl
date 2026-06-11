@@ -769,12 +769,12 @@ function fit_flat_background(flux_cut, bkg_positions)
         return bkg_cut
     end
 
-    function to_optimize(pars)
+    function to_optimize(pars, bkg_fluxes, bkg_xs, bkg_ys)
         normal = √(pars[1]^2 + pars[2]^2 + pars[3]^2)
         return bkg_fluxes - (pars[4]*normal .- pars[1]*bkg_xs - pars[2]*bkg_ys)/pars[3]
     end
 
-    bkg_plane = optimize(to_optimize, [0.0,0.0,1.0,100.0], LevenbergMarquardt()).minimizer
+    bkg_plane = optimize(x -> to_optimize(x, bkg_fluxes, bkg_xs, bkg_ys), [0.0,0.0,1.0,100.0], LevenbergMarquardt()).minimizer
 
     
     normal = √(bkg_plane[1]^2 + bkg_plane[2]^2 + bkg_plane[3]^2)
@@ -1239,7 +1239,7 @@ function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5
 
 
     # Colorbar(fig[1,2], sc)
-    fig
+    fig, i_cut
 end
 
 function delete_nans(jds, fluxs)
