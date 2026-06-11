@@ -251,7 +251,7 @@ function get_distance(α_1, δ_1, α_2, δ_2)
     xyz_1 = [cos(α_1_rad)*cos(δ_1_rad), sin(α_1_rad)*cos(δ_1_rad), sin(δ_1_rad)]
     xyz_2 = [cos(α_2_rad)*cos(δ_2_rad), sin(α_2_rad)*cos(δ_2_rad), sin(δ_2_rad)]
 
-    return acos(xyz_1 ⋅ xyz_2)/180*π
+    return acos(xyz_1 ⋅ xyz_2)*180/π
 end
 
 function calc_tess_magnitude(flux)
@@ -687,14 +687,79 @@ function create_gaia_datafiles(star_name; rewrite = false)
         star_R = gaia_data.phot_rp_mean_mag
         gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/gaia_stars_in_view.csv"
 
-        distance = √((corners[1][1] - corners[3][1])^2 + (corners[1][2] - corners[3][2])^2)/2
         center = sum(corners)/4
+        distance = get_distance(corners[1]..., corners[3]...)/2
 
         if !isfile(gaia_stars_file) | rewrite
-            data = get_gaia_stars_in_distance(center, distance*1.2, star_R + Δm_R; gaia = "dr2")
+            data = get_gaia_stars_in_distance(center, distance*1.2, 20; gaia = "dr2")
             CSV.write(gaia_stars_file, data)
         end
     end
+end
+
+function create_gaia_prf_model(star_name, sector, cut_size, args...)
+    create_gaia_prf_model(star_name, sector, cut_size, cut_size, args...)
+end
+
+function create_gaia_prf_model(star_name, sector, cut_width, cut_height, Δm_R)
+    create_gaia_prf_model(star_name, sector, cut_width, cut_height, Δm_R, 0.0, 0.0)
+end
+
+function create_gaia_prf_model(star_name, sector, cut_width, cut_height, Δm_R, shift_x, shift_y)
+    fits = load_tess_cutouts(star_name, cut_width, cut_height)[sector]
+
+    supersampled_prf = get_tesscut_prf_supersampled(fits)
+    gaia_stars_data = load_gaia_stars_in_view_data(star_name, fits, Δm_R)
+    # n_gaia_stars = nrow(gaia_stars_data)
+    gaia_data = load_star_gaia_data(star_name)
+
+    # star_index = findfirst(s -> s == gaia_data.source_id, gaia_stars_data.source_id)
+    # star_px = gaia_stars_data.px_x[star_index], gaia_stars_data.px_y[star_index]
+
+    stars_x = gaia_stars_data.px_x; stars_y = gaia_stars_data.px_y; stars_m_R = gaia_stars_data.phot_rp_mean_mag
+
+    create_gaia_prf_model(supersampled_prf, cut_width, cut_height, stars_x, stars_y, stars_m_R, shift_x, shift_y)
+end
+
+function create_gaia_prf_model(supersampled_prf :: AbstractMatrix, cut_width, cut_height, stars_x, stars_y, stars_m_R, shift_x, shift_y)
+    n_gaia_stars = length(stars_m_R)
+    
+    model_cut = zeros(cut_width, cut_height)
+    for i_star = 1:n_gaia_stars
+        add_prf_cut!(model_cut, calc_tess_flux_from_mag(stars_m_R[i_star]), supersampled_prf, cut_width, cut_height, stars_x[i_star] + shift_x, stars_y[i_star] + shift_y)
+    end
+
+    return model_cut
+end
+
+function create_gaia_prf_model_old(supersampled_prf :: AbstractMatrix, cut_width, cut_height, stars_x, stars_y, stars_m_R, shift_x, shift_y)
+    n_gaia_stars = length(stars_m_R)
+    
+    model_cut = zeros(cut_width, cut_height)
+    for i_star = 1:n_gaia_stars
+        prf_cut = get_prf_cut(supersampled_prf, cut_width, cut_height, stars_x[i_star] + shift_x, stars_y[i_star] + shift_y)
+        model_cut += prf_cut*calc_tess_flux_from_mag(stars_m_R[i_star])
+    end
+
+    return model_cut
+end
+
+function find_background_prf_gaia_mags(flux_cut, supersampled_prf, stars_x, stars_y, stars_m_R)
+    n_stars = length(stars_x)
+    cut_width, cut_height = size(flux_cut)
+    PRF_cut = create_gaia_prf_model(supersampled_prf, cut_width, cut_height, stars_x, stars_y, stars_m_R, 0.0, 0.0)
+    median_prf = sort(vec(PRF_cut))[round(Int, cut_width*cut_height*0.7)]
+    median_prf_px = findall(x -> (median_prf - x) > -1e-8, PRF_cut)
+    # println(PRF_cut)
+    # format = Printf.Format("%8.2f "^15 * "\n")
+    # for i = 1:cut_width
+    #     Printf.format(stdout, format, PRF_cut[:, cut_height - i +1]...)
+    # end
+    # println(quartile)
+    # for i = 1:cut_width
+    #     Printf.format(stdout, format, empty_cut[:, cut_height - i +1]...)
+    # end
+    return median_prf_px
 end
 
 function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
@@ -721,6 +786,7 @@ function find_background_prf(flux_cut, supersampled_prf, stars_x, stars_y)
     # end
     return median_prf_px
 end
+
 
 function fit_flat_background_precise_indeces(flux_cut, bkg_positions)
     cut_width, cut_height = size(flux_cut)
@@ -826,12 +892,13 @@ function load_gaia_stars_in_view_data(star_name, fits, Δm_R = 5; rewrite_file =
     sector = read_key(fits[1], "SECTOR")[1]
     # println(sector)
     gaia_stars_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/gaia_stars_in_view_sector_$sector.csv"
-    distance = √((corners[1][1] - corners[3][1])^2 + (corners[1][2] - corners[3][2])^2)/2
     center = sum(corners)/4
+    distance = get_distance(corners[1]..., corners[3]...)/2
+    
     gaia_stars_df = if (!isfile(gaia_stars_file)) | rewrite_file
         mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
-        # data = get_gaia_stars_in_poly(corners, star_R + 20)
-        data = get_gaia_stars_in_distance(center, distance*1.2, star_R + 20)
+        # data = get_gaia_stars_in_poly(corners, 20)
+        data = get_gaia_stars_in_distance(center, distance*1.2, 20)
         reference_px = [read_key(fits[2], "1CRPX4")[1], read_key(fits[2], "2CRPX4")[1]]
         reference_radec = [read_key(fits[2], "1CRVL4")[1], read_key(fits[2], "2CRVL4")[1]]
         conversion_matrix_px_to_radec = [read_key(fits[2], "11PC4")[1] read_key(fits[2], "12PC4")[1]
@@ -896,6 +963,14 @@ function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, r
 
     star_index = findfirst(s -> s == gaia_data.source_id, gaia_stars_data.source_id)
     star_px = gaia_stars_data.px_x[star_index], gaia_stars_data.px_y[star_index]
+    star_mag = gaia_stars_data.phot_rp_mean_mag[star_index]
+
+    i_stars_mag = findall(x -> x < star_mag + Δm_R, gaia_stars_data.phot_rp_mean_mag)
+
+    stars_x = gaia_stars_data.px_x[i_stars_mag]
+    stars_y = gaia_stars_data.px_y[i_stars_mag]
+    stars_mag = gaia_stars_data.phot_rp_mean_mag[i_stars_mag]
+    
 
     light_curve_file = "$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)/light_curve_sector_$sector.csv"
 
@@ -904,7 +979,9 @@ function load_light_curve(star_name, sector, cut_width, cut_height; Δm_R = 5, r
     if !isfile(light_curve_file) | rewrite_file
         mkpath("$star_directory/$(get_nospace_star_name(star_name))/$(cut_width)x$(cut_height)")
         prf = get_tesscut_prf_supersampled(fits)
-        bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, gaia_stars_data.px_x, gaia_stars_data.px_y)
+        
+        bkg_pixels = find_background_prf_gaia_mags(flux_cuts[:,:,n_cuts÷4], prf, stars_x, stars_y, stars_mag)
+        # bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, stars_x, stars_y)
         # println(gaia_stars_data.px_x)
         # println(gaia_stars_data.px_y)
         # println(bkg_pixels)
@@ -1129,6 +1206,7 @@ function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5
     phot_flux = df_lc.FLUX; mjds = df_lc.MJD
 
     df_star = load_star_gaia_data(star_name)
+    star_mag = df_star.phot_rp_mean_mag
     frame_stars_df = load_gaia_stars_in_view_data(star_name, fits, Δm_R)
 
     star_index = findfirst(x -> x == df_star.source_id, frame_stars_df.source_id)
@@ -1136,10 +1214,11 @@ function plot_cuts(star_name, sector, cut_width, cut_height; aperture_radius = 5
     star_px = frame_stars_df.px_x[star_index], frame_stars_df.px_y[star_index]
 
     stars_mag = frame_stars_df.phot_rp_mean_mag
+    i_stars_mag = findall(x -> x < star_mag + Δm_R, stars_mag)
 
     prf = get_tesscut_prf_supersampled(fits)
-    bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, stars_x, stars_y)
-    
+    bkg_pixels = find_background_prf_gaia_mags(flux_cuts[:,:,n_cuts÷4], prf, stars_x[i_stars_mag], stars_y[i_stars_mag], stars_mag[i_stars_mag])
+    # bkg_pixels = find_background_prf(flux_cuts[:,:,n_cuts÷4], prf, stars_x, stars_y)
 
     max_flux_i_cut = findmax(x -> isnan(x) ? -1 : x, df_lc.FLUX)[2]
     # xlabel!(ax_cut, @sprintf "1 px = %4.1f\"" norm(conversion_matrix_px_to_radec * [1.0, 0.0])*3600)
