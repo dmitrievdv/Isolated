@@ -23,7 +23,7 @@ using LombScargle
 
 star_directory = "stars_julia"
 
-tess_max_sectors = 96
+tess_max_sectors = 100
 
 # include("lightcurves.jl")
 include("databases.jl")
