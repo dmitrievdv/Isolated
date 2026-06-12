@@ -18,8 +18,8 @@ sectors = find_tess_sectors(star_name, tess_max_sectors)
 
 
 # plot_cuts viewer
-sector = sectors[2]
-fig, i_cut = plot_cuts(star_name, sector, cut_size, cut_size; Δm_R = 5)
+sector = sectors[1]
+fig, i_cut = plot_cuts(star_name, sector, cut_size, cut_size; Δm_R = 9)
 resize!(fig.scene, (1000,1000)); fig
 
 ## uncomment bellow to record a video of plot_cuts
